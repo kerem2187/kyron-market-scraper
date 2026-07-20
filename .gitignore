@@ -1,0 +1,9 @@
+.gradle/
+build/
+*.log
+.env
+*.iml
+.idea/
+# Never commit service account keys
+gcp-key.json
+*-sa-key.json

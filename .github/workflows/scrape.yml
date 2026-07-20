@@ -1,0 +1,54 @@
+name: Kyron Market Scrape
+
+on:
+  schedule:
+    # 00:00 UTC = 03:00 Europe/Istanbul (UTC+3). Free GitHub-hosted cron.
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      chains:
+        description: "Comma-separated chain slugs (or 'all')"
+        default: "all"
+        required: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      FIRESTORE_COLLECTION: products
+      # Set only if Kyron uses a NAMED Firestore database (default is fine otherwise)
+      FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
+      REQUEST_DELAY_MS: "800"
+      # Use only the Chromium we pre-install; do not auto-download Firefox/Webkit
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      # Manual runs use the input; scheduled runs use the repo variable, else 'all'.
+      ENABLED_CHAINS: ${{ github.event.inputs.chains || vars.ENABLED_CHAINS || 'all' }}
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10"
+
+      - name: Write GCP service account credentials
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Install Playwright Chromium (+ OS deps)
+        run: gradle --no-daemon installBrowsers
+
+      - name: Run scraper
+        run: gradle --no-daemon run --args="$ENABLED_CHAINS"
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
