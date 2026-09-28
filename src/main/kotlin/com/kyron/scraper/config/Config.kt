@@ -2,30 +2,32 @@ package com.kyron.scraper.config
 
 /** Central runtime configuration read from environment variables. */
 object Config {
-    /** GCP/Firebase project id (same project your Kyron app uses). */
     val projectId: String get() = env("GCP_PROJECT_ID")
-
-    /**
-     * Firestore database id. Leave as "(default)" unless your Kyron app uses a
-     * NAMED database. If Kyron reads from a named DB but this writes to
-     * "(default)", you will see green runs but no products in the app.
-     */
     val databaseId: String get() = envOr("FIRESTORE_DATABASE", "(default)")
-
     val firestoreCollection: String get() = envOr("FIRESTORE_COLLECTION", "products")
+    val observationsCollection: String get() = envOr("FIRESTORE_OBSERVATIONS_COLLECTION", "product_observations")
 
-    /** Politeness / throttling. */
-    val requestDelayMs: Long get() = envOr("REQUEST_DELAY_MS", "800").toLong()
-    val userAgent: String get() = envOr("USER_AGENT", "KyronBot/1.0 (+https://kyron.app/bot)")
+    val requestDelayMs: Long get() = positiveLong("REQUEST_DELAY_MS", 1_000)
+    val userAgent: String get() = envOr("USER_AGENT", "KyronProductIndexer/2.0 (+https://kyron.app/bot)")
 
-    /** Comma-separated chain slugs, or "all". */
+    /** Hard safety limits. A canonical update can consume up to two writes. */
+    val maxWritesPerRun: Int get() = positiveInt("MAX_WRITES_PER_RUN", 5_000)
+    val maxRunMinutes: Long get() = positiveLong("MAX_RUN_MINUTES", 240)
+
+    /** "all" means all VERIFIED sources, not experimental or disabled sources. */
     val enabledChains: List<String>
-        get() = envOr("ENABLED_CHAINS", "all")
+        get() = envOr("ENABLED_CHAINS", "off")
             .split(",").map { it.trim().lowercase() }.filter { it.isNotEmpty() }
 
-    private fun env(key: String): String =
-        System.getenv(key) ?: error("Missing required env var: $key")
+    private fun positiveInt(key: String, default: Int): Int =
+        envOr(key, default.toString()).toIntOrNull()?.takeIf { it > 0 }
+            ?: error("$key must be a positive integer")
 
+    private fun positiveLong(key: String, default: Long): Long =
+        envOr(key, default.toString()).toLongOrNull()?.takeIf { it > 0 }
+            ?: error("$key must be a positive integer")
+
+    private fun env(key: String): String = System.getenv(key) ?: error("Missing required env var: $key")
     private fun envOr(key: String, default: String): String =
         System.getenv(key)?.takeIf { it.isNotBlank() } ?: default
 }

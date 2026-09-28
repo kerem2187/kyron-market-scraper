@@ -4,35 +4,25 @@ import com.kyron.scraper.browser.BrowserRunner
 import com.kyron.scraper.http.PoliteFetcher
 import com.kyron.scraper.marketfiyati.MarketFiyatiImporter
 import com.kyron.scraper.off.OpenFoodFactsImporter
-import com.kyron.scraper.scraper.chains.A101Scraper
-import com.kyron.scraper.scraper.chains.CarrefourSaScraper
-import com.kyron.scraper.scraper.chains.FileMarketScraper
-import com.kyron.scraper.scraper.chains.HakmarScraper
-import com.kyron.scraper.scraper.chains.MacrocenterScraper
-import com.kyron.scraper.scraper.chains.MigrosScraper
-import com.kyron.scraper.scraper.chains.SokScraper
+import com.kyron.scraper.scraper.chains.*
 
-/** Central catalog of all available sources. */
-class ScraperRegistry(
-    fetcher: PoliteFetcher,
-    browser: BrowserRunner,
-) {
+class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner) {
     private val all: List<ChainScraper> = listOf(
-        OpenFoodFactsImporter(),        // off          — global base layer
-        MarketFiyatiImporter(),         // marketfiyati — TÜBİTAK, 6 TR chains, daily, no key
-        MigrosScraper(browser),         // migros
-        CarrefourSaScraper(browser),    // carrefoursa
-        MacrocenterScraper(fetcher),    // macrocenter
-        SokScraper(fetcher),            // sok
-        A101Scraper(fetcher),           // a101
-        FileMarketScraper(fetcher),     // file
-        HakmarScraper(fetcher),         // hakmar
+        OpenFoodFactsImporter(), MarketFiyatiImporter(), MigrosScraper(browser),
+        CarrefourSaScraper(browser), MacrocenterScraper(fetcher), SokScraper(fetcher),
+        A101Scraper(fetcher), FileMarketScraper(fetcher), HakmarScraper(fetcher),
     )
 
-    /** Resolves the enabled scrapers. Pass ["all"] (or empty) for everything. */
-    fun resolve(enabled: List<String>): List<ChainScraper> =
-        if (enabled.isEmpty() || enabled.contains("all")) all
-        else all.filter { it.slug in enabled }
+    fun resolve(enabled: List<String>): List<ChainScraper> {
+        val requested = enabled.ifEmpty { listOf("off") }
+        if (requested.contains("all")) return all.filter { it.status == SourceStatus.VERIFIED }
+        val unknown = requested - all.map { it.slug }.toSet()
+        require(unknown.isEmpty()) { "Unknown source(s): ${unknown.joinToString()}; available=${all.joinToString { it.slug }}" }
+        val selected = all.filter { it.slug in requested }
+        val disabled = selected.filter { it.status == SourceStatus.DISABLED }
+        require(disabled.isEmpty()) { "Disabled source(s): ${disabled.joinToString { it.slug }}" }
+        return selected
+    }
 
     fun slugs(): List<String> = all.map { it.slug }
 }
