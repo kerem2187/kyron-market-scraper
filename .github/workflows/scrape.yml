@@ -1,54 +1,64 @@
 name: Kyron Market Scrape
 
 on:
-  schedule:
-    # 00:00 UTC = 03:00 Europe/Istanbul (UTC+3). Free GitHub-hosted cron.
-    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       chains:
-        description: "Comma-separated chain slugs (or 'all')"
-        default: "all"
-        required: false
+        description: "Comma-separated source slugs; 'all' means verified sources only"
+        default: "off"
+        required: true
+      max_writes:
+        description: "Hard Firestore write budget"
+        default: "500"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kyron-market-scrape
+  cancel-in-progress: false
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 240
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       FIRESTORE_COLLECTION: products
-      # Set only if Kyron uses a NAMED Firestore database (default is fine otherwise)
+      FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
       FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
-      REQUEST_DELAY_MS: "800"
-      # Use only the Chromium we pre-install; do not auto-download Firefox/Webkit
+      REQUEST_DELAY_MS: "1000"
+      MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes }}
+      MAX_RUN_MINUTES: "220"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      # Manual runs use the input; scheduled runs use the repo variable, else 'all'.
-      ENABLED_CHAINS: ${{ github.event.inputs.chains || vars.ENABLED_CHAINS || 'all' }}
+      ENABLED_CHAINS: ${{ github.event.inputs.chains }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10"
-
-      - name: Write GCP service account credentials
+      - name: Validate required secrets
+        shell: bash
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-
-      - name: Install Playwright Chromium (+ OS deps)
+        run: |
+          test -n "$GCP_PROJECT_ID" || { echo "GCP_PROJECT_ID is missing"; exit 1; }
+          test -n "$GCP_SA_KEY" || { echo "GCP_SA_KEY is missing"; exit 1; }
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          chmod 600 "$GOOGLE_APPLICATION_CREDENTIALS"
+      - name: Test
+        run: gradle --no-daemon test
+      - name: Install Chromium
+        if: contains(github.event.inputs.chains, 'migros') || contains(github.event.inputs.chains, 'carrefoursa')
         run: gradle --no-daemon installBrowsers
-
       - name: Run scraper
         run: gradle --no-daemon run --args="$ENABLED_CHAINS"
-
       - name: Cleanup credentials
         if: always()
         run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

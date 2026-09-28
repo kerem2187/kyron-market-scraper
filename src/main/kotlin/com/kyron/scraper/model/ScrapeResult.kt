@@ -2,7 +2,6 @@ package com.kyron.scraper.model
 
 import kotlinx.serialization.Serializable
 
-/** Raw, unnormalized product emitted by a chain scraper. */
 data class RawProduct(
     val name: String,
     val brand: String? = null,
@@ -13,15 +12,19 @@ data class RawProduct(
     val sourceUrl: String? = null,
 )
 
-/** Per-chain run report, returned by the scrape endpoint. */
 @Serializable
 data class ChainScrapeReport(
     val chain: String,
     val discovered: Int,
     val withBarcode: Int,
-    val upserted: Int,
+    val inserted: Int,
+    val updated: Int,
+    val unchanged: Int,
     val skipped: Int,
     val errors: Int,
+    val stoppedByBudget: Boolean,
     val durationMs: Long,
     val failures: List<String> = emptyList(),
-)
+) {
+    val written: Int get() = inserted + updated
+}
