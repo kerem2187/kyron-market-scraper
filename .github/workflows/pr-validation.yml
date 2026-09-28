@@ -2,7 +2,7 @@ name: PR Validation and Firestore Smoke
 
 on:
   push:
-    branches: ["hardening/**"]
+    branches: [main, "hardening/**"]
 
 permissions:
   contents: read
