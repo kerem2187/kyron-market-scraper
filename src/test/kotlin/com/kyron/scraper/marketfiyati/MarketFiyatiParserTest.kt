@@ -1,6 +1,7 @@
 package com.kyron.scraper.marketfiyati
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.*
 
 class MarketFiyatiParserTest {
