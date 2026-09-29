@@ -13,6 +13,7 @@ dependencies {
     implementation("com.microsoft.playwright:playwright:1.47.0")
     implementation(platform("com.google.cloud:libraries-bom:26.44.0"))
     implementation("com.google.cloud:google-cloud-firestore")
+    implementation("com.google.auth:google-auth-library-oauth2-http")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     implementation("ch.qos.logback:logback-classic:1.5.6")
@@ -31,4 +32,12 @@ tasks.register<JavaExec>("installBrowsers") {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.microsoft.playwright.CLI")
     args("install", "--with-deps", "chromium")
+}
+
+// Standalone Firestore -> Google Sheets/AppSheet catalog synchronization.
+tasks.register<JavaExec>("syncSheetsCatalog") {
+    group = "application"
+    description = "Synchronizes canonical Firestore products into the AppSheet KATALOG tab."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.sheets.SyncSheetsMainKt")
 }
