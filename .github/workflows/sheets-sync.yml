@@ -1,0 +1,57 @@
+name: Sync AppSheet Product Catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 05:30 Europe/Istanbul (02:30 UTC).
+    - cron: "30 2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "src/main/kotlin/com/kyron/scraper/sheets/**"
+      - ".github/workflows/sheets-sync.yml"
+      - "build.gradle.kts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kyron-sheets-catalog-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      FIRESTORE_COLLECTION: products
+      FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
+      SHEETS_SYNC_ENABLED: "true"
+      SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+      SHEETS_CATALOG_TAB: "KATALOG"
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.10"
+      - name: Write service-account credentials
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          test -n "$GCP_PROJECT_ID" || { echo "GCP_PROJECT_ID secret is missing"; exit 1; }
+          test -n "$GCP_SA_KEY" || { echo "GCP_SA_KEY secret is missing"; exit 1; }
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          chmod 600 "$GOOGLE_APPLICATION_CREDENTIALS"
+      - name: Test
+        run: gradle --no-daemon test
+      - name: Sync KATALOG
+        run: gradle --no-daemon syncSheetsCatalog
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

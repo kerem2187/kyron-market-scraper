@@ -33,3 +33,11 @@ tasks.register<JavaExec>("installBrowsers") {
     mainClass.set("com.microsoft.playwright.CLI")
     args("install", "--with-deps", "chromium")
 }
+
+// Standalone Firestore -> Google Sheets/AppSheet catalog synchronization.
+tasks.register<JavaExec>("syncSheetsCatalog") {
+    group = "application"
+    description = "Synchronizes canonical Firestore products into the AppSheet KATALOG tab."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.sheets.SyncSheetsMainKt")
+}
