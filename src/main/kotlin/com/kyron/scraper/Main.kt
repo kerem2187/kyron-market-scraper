@@ -6,6 +6,7 @@ import com.kyron.scraper.config.Config
 import com.kyron.scraper.http.PoliteFetcher
 import com.kyron.scraper.scraper.ScrapeOrchestrator
 import com.kyron.scraper.scraper.ScraperRegistry
+import com.kyron.scraper.sheets.SheetsCatalogSync
 import com.kyron.scraper.store.FirestoreRepository
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
@@ -39,6 +40,15 @@ fun main(args: Array<String>) = runBlocking {
             val fatalSources = reports.count { it.errors > 0 && it.discovered == 0 }
             log.info { "TOTAL written=$written firestoreWrites=${repo.writesUsed}" }
             if (fatalSources > 0 || reports.all { it.withBarcode == 0 }) exitProcess(1)
+            if (Config.sheetsSyncEnabled) {
+                try {
+                    val sheetReport = SheetsCatalogSync(fs).sync()
+                    log.info { "SHEETS_TOTAL inserted=${sheetReport.inserted} enriched=${sheetReport.enriched} finalRows=${sheetReport.finalRows}" }
+                } catch (e: Exception) {
+                    log.error(e) { "Google Sheets catalog sync FAILED" }
+                    exitProcess(4)
+                }
+            }
         }
     }
 }

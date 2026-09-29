@@ -28,6 +28,9 @@ jobs:
       FIRESTORE_COLLECTION: products
       FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
       FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
+      SHEETS_SYNC_ENABLED: "true"
+      SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+      SHEETS_CATALOG_TAB: "KATALOG"
       REQUEST_DELAY_MS: "1000"
       MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes }}
       MAX_RUN_MINUTES: "220"
