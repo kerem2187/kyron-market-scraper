@@ -15,7 +15,7 @@ dependencies {
     implementation("com.google.cloud:google-cloud-firestore")
     implementation("com.google.auth:google-auth-library-oauth2-http")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("ch.qos.logback:logback-classic:1.5.6")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
     testImplementation(kotlin("test-junit5"))
