@@ -40,6 +40,25 @@ class PoliteFetcher(
         throw RuntimeException("Failed to fetch $url after $maxRetries attempts", lastError)
     }
 
+    /** Bounded image download sharing the same throttle/retry policy as HTML requests. */
+    suspend fun getBytes(url: String): ByteArray {
+        var lastError: Exception? = null
+        repeat(maxRetries) { attempt ->
+            throttle()
+            try {
+                return Jsoup.connect(url).userAgent(userAgent).timeout(20_000)
+                    .maxBodySize(8 * 1024 * 1024 + 1).ignoreContentType(true)
+                    .execute().bodyAsBytes().also {
+                        require(it.size <= 8 * 1024 * 1024) { "Image exceeds 8 MiB" }
+                    }
+            } catch (e: Exception) {
+                lastError = e
+                delay(delayMs * (attempt + 2))
+            }
+        }
+        throw RuntimeException("Failed to fetch image after $maxRetries attempts", lastError)
+    }
+
     private suspend fun throttle() = mutex.withLock {
         val now = System.currentTimeMillis()
         val wait = delayMs - (now - lastRequest)

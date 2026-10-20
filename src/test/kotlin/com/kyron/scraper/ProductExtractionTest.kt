@@ -16,4 +16,16 @@ class ProductExtractionTest {
         assertEquals("Brand", p.brand)
         assertEquals("https://example.com/p.jpg", p.sourceImageUrl)
     }
+    @Test fun extractsMacrocenterWebPageNestedItemOffered() {
+        val html = """<script type="application/ld+json">{
+          "@type":"WebPage","mainEntity":{"@type":"WebPageElement","offers":{
+            "@type":"Offer","itemOffered":[{"@type":"Product","name":"Kefir",
+            "brand":{"name":"Uluova"},"image":[{"@type":"ImageObject","contentUrl":"https://example.com/k.jpg"}]}]
+          }}
+        }</script>"""
+        val p = assertNotNull(ProductExtraction.fromJsonLd(Jsoup.parse(html), "https://example.com/p"))
+        assertEquals("Kefir", p.name)
+        assertEquals("https://example.com/k.jpg", p.sourceImageUrl)
+        assertNull(p.barcode)
+    }
 }

@@ -23,7 +23,8 @@ object JsonLd {
                     else -> emptyList()
                 }
                 if (types.any { it.equals("Product", ignoreCase = true) }) out.add(el)
-                el["@graph"]?.let { collectProducts(it, out) }
+                // WebPage -> mainEntity -> offers -> itemOffered is used by Macrocenter.
+                el.values.forEach { collectProducts(it, out) }
             }
             else -> Unit
         }
