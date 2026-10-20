@@ -2,7 +2,9 @@ package com.kyron.scraper.browser
 
 import com.kyron.scraper.config.Config
 import com.microsoft.playwright.Browser
+import com.microsoft.playwright.BrowserContext
 import com.microsoft.playwright.BrowserType
+import com.microsoft.playwright.options.ServiceWorkerPolicy
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 
@@ -36,6 +38,15 @@ class BrowserRunner : AutoCloseable {
             page.setDefaultTimeout(30_000.0)
             return block(page)
         }
+    }
+
+    /** Keep cookies/cache across a bounded scrape, without sharing a Page across threads. */
+    suspend fun <T> withContext(block: suspend (BrowserContext) -> T): T {
+        val context = browser().newContext(
+            Browser.NewContextOptions().setUserAgent(Config.userAgent)
+                .setServiceWorkers(ServiceWorkerPolicy.BLOCK),
+        )
+        context.use { return block(it) }
     }
 
     override fun close() {
