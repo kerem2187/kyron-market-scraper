@@ -37,7 +37,8 @@ CLI job (Main.kt)  ── ScraperRegistry ── ScrapeOrchestrator
    • off          → Open Food Facts (ODbL, önerilen temel katman)
    • migros       → Playwright (JS-render)
    • carrefoursa  → Playwright (JS-render)
-   • macrocenter / sok / a101 / file / hakmar → HTTP + Jsoup
+   • macrocenter  → Playwright + ürün API yanıtı + etiket barkodu (ZXing)
+   • sok / a101 / file / hakmar → HTTP + Jsoup
 ```
 
 Ekstraksiyonun kalbi **schema.org JSON-LD** okumasıdır (`gtin13`, `name`, `brand`, `image`).
@@ -139,3 +140,11 @@ Kota içinde kalmanın yolları:
 - **Görsel barındırma:** Cloudflare R2 (10 GB ücretsiz) veya Firebase Storage.
 - **Daha yüksek yazma limiti:** Firestore Blaze (kullandıkça-öde) ya da Supabase/Neon (Postgres, ücretsiz katman).
 - **Daha uzun/sık job:** Kendi VPS'inde cron, ya da Cloud Run + Cloud Scheduler (bu repo'nun önceki sürümü).
+
+
+## Macrocenter görsel ve etiket barkodu desteği
+
+Güncel kategori keşfi, sonsuz kaydırma, ürün görsel URL'leri ve etiket görsellerinden
+barkod okuma desteği için [Macrocenter kullanım ve doğrulama notlarına](docs/macrocenter.md) bakın.
+Önce `gradle macrocenterSmoke` ile veritabanına yazmadan deneyin. Kaynak deneysel kalır;
+Actions üzerinde çalıştırırken `chains=macrocenter` seçilmelidir.

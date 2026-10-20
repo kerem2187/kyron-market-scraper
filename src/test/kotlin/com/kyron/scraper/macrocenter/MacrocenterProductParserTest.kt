@@ -1,0 +1,59 @@
+package com.kyron.scraper.macrocenter
+
+import com.kyron.scraper.scraper.chains.MacrocenterProductParser as Parser
+import com.kyron.scraper.scraper.chains.MacrocenterScraper
+import kotlinx.serialization.json.*
+import org.jsoup.Jsoup
+import kotlin.test.*
+
+class MacrocenterProductParserTest {
+    private val url = "https://www.macrocenter.com.tr/uluova-kefir-chia-tohumlu-1-l-p-b0408f"
+    private val fixture = javaClass.getResource("/macrocenter/product-detail.json")!!.readText()
+
+    @Test fun parsesCapturedPublicDetailWithoutMistakingSkuForBarcode() {
+        val data = assertNotNull(Parser.detail(fixture, url))
+        val product = assertNotNull(Parser.product(data, url))
+        assertEquals("Uluova Kefir Chia Tohumlu 1 L", product.name)
+        assertEquals("Uluova", product.brand)
+        assertEquals("Kefir", product.category)
+        assertNull(product.barcode) // The live API did NOT expose a GTIN.
+        assertTrue(product.sourceImageUrl!!.endsWith("-1650x1650.jpg"))
+        assertEquals(1, Parser.labelImages(data).size)
+        assertTrue(Parser.labelImages(data).single().contains("/product-legal/11550863/"))
+    }
+
+    @Test fun rejectsDifferentProductAndUnsuccessfulResponses() {
+        assertNull(Parser.detail(fixture, "https://www.macrocenter.com.tr/another-product-p-abc"))
+        assertNull(Parser.detail(fixture.replace("\"successful\": true", "\"successful\": false"), url))
+        assertNull(Parser.detail("not json", url))
+    }
+
+    @Test fun acceptsOnlyExplicitChecksumValidBarcodeFields() {
+        assertEquals("8690504084686", Parser.barcode(buildJsonObject { put("barcode", "8690504084686") }))
+        assertNull(Parser.barcode(buildJsonObject { put("barcode", "8690504084687") }))
+        assertNull(Parser.barcode(buildJsonObject { put("sku", "8690504084686"); put("id", "8690504084686") }))
+        assertNull(Parser.barcode(buildJsonObject { put("barcode", "EAN: 8690504084686") }))
+        assertEquals("8690504084686", Parser.barcode(buildJsonObject {
+            putJsonArray("barcodes") { add("invalid"); add("8690504084686") }
+        }))
+    }
+
+    @Test fun rejectsUnsafeImageHosts() {
+        assertNull(Parser.safeImageUrl("http://images.migrosone.com/a.jpg"))
+        assertNull(Parser.safeImageUrl("https://images.migrosone.com.evil.test/a.jpg"))
+        assertNull(Parser.safeImageUrl("https://127.0.0.1/a.jpg"))
+        assertNull(Parser.safeImageUrl("https://user@images.migrosone.com/a.jpg"))
+    }
+
+    @Test fun discoversCurrentMenuAndDeduplicatesSameOriginProductLinks() {
+        val doc = Jsoup.parse("""
+            <mc-nav-tree-large-item><a href="/sut-c-116eb">Süt</a>
+              <fe-category-flyout-simple><a href="/alt-c-123">Alt</a></fe-category-flyout-simple>
+            </mc-nav-tree-large-item>
+            <a href="/sut-p-abcd?campaign=1">Süt</a><a href="/sut-p-abcd">Süt</a>
+            <a href="https://evil.test/sut-p-abcd">External</a>
+        """, MacrocenterScraper.BASE)
+        assertEquals(listOf("${MacrocenterScraper.BASE}/sut-c-116eb"), MacrocenterScraper.categoryLinks(doc))
+        assertEquals(listOf("${MacrocenterScraper.BASE}/sut-p-abcd"), MacrocenterScraper.productLinks(doc))
+    }
+}

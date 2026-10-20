@@ -10,6 +10,8 @@ repositories { mavenCentral() }
 
 dependencies {
     implementation("org.jsoup:jsoup:1.18.1")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:javase:3.5.3")
     implementation("com.microsoft.playwright:playwright:1.47.0")
     implementation(platform("com.google.cloud:libraries-bom:26.44.0"))
     implementation("com.google.cloud:google-cloud-firestore")
@@ -40,4 +42,12 @@ tasks.register<JavaExec>("syncSheetsCatalog") {
     description = "Synchronizes canonical Firestore products into the AppSheet KATALOG tab."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.kyron.scraper.sheets.SyncSheetsMainKt")
+}
+
+// Read-only Macrocenter smoke check; does not initialize Firestore/Sheets.
+tasks.register<JavaExec>("macrocenterSmoke") {
+    group = "verification"
+    description = "Prints up to three Macrocenter products without database writes."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.macrocenter.MacrocenterSmokeMainKt")
 }

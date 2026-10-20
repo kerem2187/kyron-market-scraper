@@ -1,0 +1,59 @@
+{
+  "successful": true,
+  "data": {
+    "id": 30000011550863,
+    "sku": "11550863",
+    "name": "Uluova Kefir Chia Tohumlu 1 L",
+    "brand": {
+      "name": "Uluova",
+      "id": 9239,
+      "prettyName": "uluova-b-2417"
+    },
+    "category": {
+      "name": "Kefir",
+      "id": 30000000070864,
+      "prettyName": "kefir-c-114d0"
+    },
+    "images": [
+      {
+        "urls": {
+          "PRODUCT_LIST": "https://images.migrosone.com/macrocenter/product/11550863/11550863_1-3cd698-105x105.jpg",
+          "PRODUCT_DETAIL": "https://images.migrosone.com/macrocenter/product/11550863/11550863_1-3cd698.jpg",
+          "PRODUCT_LIST_2": "https://images.migrosone.com/macrocenter/product/11550863/11550863_1-3cd698-221x148.jpg",
+          "PRODUCT_HD": "https://images.migrosone.com/macrocenter/product/11550863/11550863_1-3cd698-1650x1650.jpg",
+          "CART": "https://images.migrosone.com/macrocenter/product/11550863/11550863_1-3cd698-46x46.jpg"
+        },
+        "productId": 30000011550863
+      }
+    ],
+    "prettyName": "uluova-kefir-chia-tohumlu-1-l-p-b0408f",
+    "productSafetyInfo": {
+      "productSupplierInfo": {
+        "supplierDetails": [
+          {
+            "name": "İşletmeci / Üretici / İthalatçı / Dağıtıcı",
+            "value": "ULUOVA SÜT TİCARET ANONİM ŞİRKETİ"
+          },
+          {
+            "name": "İşletmeci / Üretici / İthalatçı / Dağıtıcı Numarası",
+            "value": "039594"
+          },
+          {
+            "name": "İşletmeci / Üretici / İthalatçı / Dağıtıcı Adresi",
+            "value": "ÜVECİK KÖYÜ SİVRİTEPE MEVKİİ N  EZİNE ÇANAKKALE"
+          }
+        ]
+      },
+      "productSafetyImageInfo": {
+        "images": [
+          {
+            "urls": {
+              "LEGAL": "https://images.migrosone.com/macrocenter/product-legal/11550863/11550863_bicakizi-c15175.jpg"
+            },
+            "productId": 30000011550863
+          }
+        ]
+      }
+    }
+  }
+}

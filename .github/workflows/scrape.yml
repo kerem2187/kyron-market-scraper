@@ -58,7 +58,7 @@ jobs:
       - name: Test
         run: gradle --no-daemon test
       - name: Install Chromium
-        if: contains(github.event.inputs.chains, 'migros') || contains(github.event.inputs.chains, 'carrefoursa')
+        if: contains(github.event.inputs.chains, 'migros') || contains(github.event.inputs.chains, 'carrefoursa') || contains(github.event.inputs.chains, 'macrocenter')
         run: gradle --no-daemon installBrowsers
       - name: Run scraper
         run: gradle --no-daemon run --args="$ENABLED_CHAINS"
