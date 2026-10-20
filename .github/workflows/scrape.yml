@@ -1,18 +1,21 @@
 name: Kyron Market Scrape
 
 on:
+  schedule:
+    # 00:00 UTC = 03:00 Europe/Istanbul. GitHub may delay scheduled starts.
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       chains:
         description: "Comma-separated source slugs; 'all' means verified sources only"
-        default: "off"
+        default: "macrocenter,migros,carrefoursa,sok,a101,file,hakmar,off"
         required: true
       seed_urls:
         description: "Optional Macrocenter category/list URLs, comma-separated; blank discovers categories"
-        default: ""
+        default: "https://www.macrocenter.com.tr/macropicks-l-8d03038"
         required: false
       max_minutes:
-        description: "Application run-time budget in minutes (Macrocenter: 1-30)"
+        description: "Run-time budget PER SOURCE in minutes (1-10)"
         default: "10"
         required: true
       max_products:
@@ -20,7 +23,7 @@ on:
         default: "30"
         required: true
       max_writes:
-        description: "Hard Firestore write budget"
+        description: "Firestore write budget PER SOURCE"
         default: "500"
         required: true
 
@@ -34,24 +37,24 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ contains(github.event.inputs.chains, 'macrocenter') && 20 || 240 }}
+    timeout-minutes: 120
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       FIRESTORE_COLLECTION: products
       FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
       FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
-      SHEETS_SYNC_ENABLED: "true"
+      SHEETS_SYNC_ENABLED: "false"
       SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
       SHEETS_CATALOG_TAB: "KATALOG"
-      REQUEST_DELAY_MS: "1000"
-      MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes }}
+      REQUEST_DELAY_MS: "3000"
+      MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '500' }}
       MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
       MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
       MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '30' }}
       MACROCENTER_MAX_LISTING_PAGES: "3"
-      MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls }}
+      MACROCENTER_SEED_URLS: ${{ github.event_name == 'schedule' && 'https://www.macrocenter.com.tr/macropicks-l-8d03038' || github.event.inputs.seed_urls }}
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      ENABLED_CHAINS: ${{ github.event.inputs.chains }}
+      ENABLED_CHAINS: ${{ github.event.inputs.chains || 'macrocenter,migros,carrefoursa,sok,a101,file,hakmar,off' }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
     steps:
       - uses: actions/checkout@v7
@@ -63,6 +66,7 @@ jobs:
         with:
           gradle-version: "8.10"
       - name: Validate required secrets
+        id: credentials
         shell: bash
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -74,10 +78,14 @@ jobs:
       - name: Test
         run: gradle --no-daemon test
       - name: Install Chromium
-        if: contains(github.event.inputs.chains, 'migros') || contains(github.event.inputs.chains, 'carrefoursa') || contains(github.event.inputs.chains, 'macrocenter')
+        if: contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'carrefoursa') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
         run: gradle --no-daemon installBrowsers
-      - name: Run scraper
-        run: gradle --no-daemon run --args="$ENABLED_CHAINS"
+      - name: Run scraper (isolated source budgets)
+        id: scrape
+        run: bash .github/scripts/run-sources.sh
+      - name: Sync Firestore catalog to Sheets after scraping
+        if: ${{ always() && !cancelled() && steps.credentials.outcome == 'success' && steps.scrape.outcome != 'skipped' }}
+        run: gradle --no-daemon syncSheetsCatalog
       - name: Cleanup credentials
         if: always()
         run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
