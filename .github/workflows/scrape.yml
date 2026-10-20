@@ -85,6 +85,8 @@ jobs:
         run: bash .github/scripts/run-sources.sh
       - name: Sync Firestore catalog to Sheets after scraping
         if: ${{ always() && !cancelled() && steps.credentials.outcome == 'success' && steps.scrape.outcome != 'skipped' }}
+        env:
+          SHEETS_SYNC_ENABLED: "true"
         run: gradle --no-daemon syncSheetsCatalog
       - name: Cleanup credentials
         if: always()
