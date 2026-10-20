@@ -2,7 +2,7 @@
 
 Macrocenter artık HTTP-only örnek kategori adreslerini kullanmaz. Playwright ile gerçek
 menüdeki üst kategorileri keşfeder, kategorilerin sonsuz kaydırmasını takip eder ve aynı
-ürünü yalnızca bir kez işler. Her kategori en fazla 50 kaydırmayla sınırlandırılmıştır.
+ürünü yalnızca bir kez işler. Her kategori varsayılan olarak en fazla 3 liste sayfasıyla sınırlandırılmıştır.
 
 ## Veri çıkarma sırası
 
@@ -56,3 +56,30 @@ Smoke komutu en fazla üç ürünü yazdırır; Firestore veya Sheets istemcisi 
   kontrol edin ve istek aralığını düşürmeyin.
 - Bu değişiklik tek başına GitHub-hosted runner üzerinde uçtan uca canlı çalışma
   doğrulaması değildir. İlk küçük bütçeli çalışma raporu ayrıca kontrol edilmelidir.
+
+## Canlı çalışma hata düzeltmesi
+
+İlk canlı çalışmada Chromium `Network.getResponseBody` hataları görüldü ve çalışma
+iptal edildi. Ürün yanıtı artık `route.fetch` ile bir kez alınıp orijinal tarayıcı
+isteğine `fulfill` edilir. Gövde Chromium'un geçici ağ önbelleğinden okunmaz.
+Katalog ve ürün sayfaları tek bir tarayıcı oturumunda tutulur; ürünler ilk liste
+sayfası yüklendiğinde işlenir, önce bütün kategori taramasının bitmesi beklenmez.
+
+Yeni varsayılan sınırlar:
+- En fazla **30 ürün denemesi** (hatalar ve barkodsuz ürünler de sayılır).
+- **10 dakika** uygulama süresi; kalan süre her isteğin zaman aşımına uygulanır.
+- Kategori başına **3 liste sayfası**.
+- **5 ardışık ürün hatasında** erken duruş.
+- Macrocenter içeren Actions çalışmasında **20 dakika job zaman aşımı**.
+- Her üründen sonra ilerleme ve çıkışta `FINAL` özeti.
+
+`max_writes` hâlâ Firestore yazma bütçesidir; ürün deneme sayısından farklıdır.
+Workflow'daki `max_products` ve `max_minutes` alanları bu ek sınırları yönetir.
+Macrocenter süre ayarı en fazla 30 dakika kabul etse de Actions job sınırı 20 dakikadır;
+kurulum/test süresine pay bırakmak için önerilen değer en fazla 10 dakikadır.
+Etiket istekleri tek denemeyle ve en fazla 8 saniyelik zaman aşımıyla çalışır.
+
+**Macrocenter Read-only Smoke** iş akışı Firestore/Sheets anahtarı almadan canlı
+ürün sorgular. En fazla 10 deneme, 3 dakika ve ilk üç ürünle sınırlıdır. En az bir
+üründe hem barkod hem görsel yoksa başarısız sayılır; boş sonuç başarılı gösterilmez.
+Bu iş akışı katalog verisi yazmaz ve Firestore taramasını otomatik başlatmaz.

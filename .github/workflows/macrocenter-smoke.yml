@@ -1,0 +1,38 @@
+name: Macrocenter Read-only Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macrocenter-readonly-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MACROCENTER_SEED_URLS: https://www.macrocenter.com.tr/sut-c-116eb
+      MACROCENTER_MAX_PRODUCTS: "10"
+      MACROCENTER_MAX_RUN_MINUTES: "3"
+      MACROCENTER_MAX_LISTING_PAGES: "1"
+      REQUEST_DELAY_MS: "1000"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.10"
+      - name: Test
+        run: gradle --no-daemon test
+      - name: Install Chromium
+        run: gradle --no-daemon installBrowsers
+      - name: Read-only live smoke (no Firestore or Sheets credentials)
+        run: gradle --no-daemon macrocenterSmoke

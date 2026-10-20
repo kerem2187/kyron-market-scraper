@@ -7,6 +7,14 @@ on:
         description: "Comma-separated source slugs; 'all' means verified sources only"
         default: "off"
         required: true
+      max_minutes:
+        description: "Application run-time budget in minutes (Macrocenter: 1-30)"
+        default: "10"
+        required: true
+      max_products:
+        description: "Macrocenter product attempt limit (includes failures)"
+        default: "30"
+        required: true
       max_writes:
         description: "Hard Firestore write budget"
         default: "500"
@@ -22,7 +30,7 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: ${{ contains(github.event.inputs.chains, 'macrocenter') && 20 || 240 }}
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       FIRESTORE_COLLECTION: products
@@ -33,7 +41,10 @@ jobs:
       SHEETS_CATALOG_TAB: "KATALOG"
       REQUEST_DELAY_MS: "1000"
       MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes }}
-      MAX_RUN_MINUTES: "220"
+      MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
+      MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
+      MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '30' }}
+      MACROCENTER_MAX_LISTING_PAGES: "3"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       ENABLED_CHAINS: ${{ github.event.inputs.chains }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json

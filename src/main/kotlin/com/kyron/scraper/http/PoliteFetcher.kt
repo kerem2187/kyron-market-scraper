@@ -32,6 +32,7 @@ class PoliteFetcher(
                     .ignoreHttpErrors(false)
                     .get()
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 lastError = e
                 attempt++
                 delay(delayMs * (attempt + 1))
@@ -41,19 +42,20 @@ class PoliteFetcher(
     }
 
     /** Bounded image download sharing the same throttle/retry policy as HTML requests. */
-    suspend fun getBytes(url: String): ByteArray {
+    suspend fun getBytes(url: String, timeoutMs: Int = 20_000, attempts: Int = maxRetries): ByteArray {
         var lastError: Exception? = null
-        repeat(maxRetries) { attempt ->
+        repeat(attempts) { attempt ->
             throttle()
             try {
-                return Jsoup.connect(url).userAgent(userAgent).timeout(20_000)
+                return Jsoup.connect(url).userAgent(userAgent).timeout(timeoutMs)
                     .maxBodySize(8 * 1024 * 1024 + 1).ignoreContentType(true)
                     .execute().bodyAsBytes().also {
                         require(it.size <= 8 * 1024 * 1024) { "Image exceeds 8 MiB" }
                     }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 lastError = e
-                delay(delayMs * (attempt + 2))
+                if (attempt + 1 < attempts) delay(delayMs * (attempt + 2))
             }
         }
         throw RuntimeException("Failed to fetch image after $maxRetries attempts", lastError)

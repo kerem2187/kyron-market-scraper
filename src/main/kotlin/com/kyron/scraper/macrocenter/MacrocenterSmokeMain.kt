@@ -10,11 +10,15 @@ import kotlinx.coroutines.runBlocking
 
 /** Read-only smoke check: no Firestore or Google Sheets credentials/writes. */
 fun main() = runBlocking {
+    var foundWithBarcodeAndImage = 0
     BrowserRunner().use { browser ->
         flow<RawProduct> {
             MacrocenterScraper(browser, PoliteFetcher()).scrape { emit(it) }
         }.take(3).collect { product ->
+            if (product.barcode != null && product.sourceImageUrl != null) foundWithBarcodeAndImage++
             println("name=${product.name} barcode=${product.barcode ?: "NOT_FOUND"} image=${product.sourceImageUrl ?: "NOT_FOUND"} url=${product.sourceUrl}")
         }
     }
+    check(foundWithBarcodeAndImage > 0) { "Smoke failed: no product with both barcode and image" }
+    println("MACROCENTER_SMOKE_OK productsWithBarcodeAndImage=$foundWithBarcodeAndImage")
 }
