@@ -2,6 +2,11 @@ name: Macrocenter Read-only Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      seed_urls:
+        description: "Macrocenter category/list URL for read-only verification"
+        default: "https://www.macrocenter.com.tr/sut-c-116eb"
+        required: true
 
 permissions:
   contents: read
@@ -15,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      MACROCENTER_SEED_URLS: https://www.macrocenter.com.tr/sut-c-116eb
+      MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls }}
       MACROCENTER_MAX_PRODUCTS: "10"
       MACROCENTER_MAX_RUN_MINUTES: "3"
       MACROCENTER_MAX_LISTING_PAGES: "1"
