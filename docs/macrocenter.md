@@ -80,7 +80,7 @@ kurulum/test süresine pay bırakmak için önerilen değer en fazla 10 dakikad�
 Etiket istekleri tek denemeyle ve en fazla 8 saniyelik zaman aşımıyla çalışır.
 
 **Macrocenter Read-only Smoke** iş akışı Firestore/Sheets anahtarı almadan canlı
-ürün sorgular. En fazla 10 deneme, 3 dakika ve ilk üç ürünle sınırlıdır. En az bir
+ürün sorgular. En fazla 10 deneme, 3 dakika ve ilk 10 ürünle sınırlıdır. En az bir
 üründe hem barkod hem görsel yoksa başarısız sayılır; boş sonuç başarılı gösterilmez.
 Bu iş akışı katalog verisi yazmaz ve Firestore taramasını otomatik başlatmaz.
 
