@@ -83,3 +83,17 @@ Etiket istekleri tek denemeyle ve en fazla 8 saniyelik zaman aşımıyla çalı�
 ürün sorgular. En fazla 10 deneme, 3 dakika ve ilk üç ürünle sınırlıdır. En az bir
 üründe hem barkod hem görsel yoksa başarısız sayılır; boş sonuç başarılı gösterilmez.
 Bu iş akışı katalog verisi yazmaz ve Firestore taramasını otomatik başlatmaz.
+
+
+## İthal ürün odaklı kaynak seçimi
+
+Actions çalıştırma formundaki `seed_urls` alanı kategori (`-c-`) veya seçki (`-l-`)
+URL'lerini kabul eder. Örneğin Macrocenter ana sayfasındaki **Macropicks 🌍** listesi:
+`https://www.macrocenter.com.tr/macropicks-l-8d03038`. Kaynak URL'leri yalnızca
+HTTPS ve `www.macrocenter.com.tr` alan adından kabul edilir. Aynı kaynak seçimi
+önce **Macrocenter Read-only Smoke** iş akışıyla yazmadan kontrol edilebilir.
+
+Macropicks seçkisinde bulunmak ürünün ithal olduğunun kesin kanıtı değildir.
+Bu tarama ürünleri otomatik "ithal" olarak etiketlemez; menşe/ithalatçı bilgisi ayrıca
+doğrulanmalıdır. Barkod veya okunabilir etiket bulunmayan ürünler kanonik kataloğa
+yazılmaz; listenin tamamının aktarılacağı garanti edilmez.

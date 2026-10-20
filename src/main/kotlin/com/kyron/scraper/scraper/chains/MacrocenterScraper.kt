@@ -73,7 +73,7 @@ class MacrocenterScraper(
                 }
 
                 val categories = if (seeds.isNotEmpty()) seeds.onEach {
-                    require(isCatalogUrl(it, "-c-")) { "Invalid Macrocenter category URL: $it" }
+                    require(isSeedUrl(it)) { "Invalid Macrocenter category/list URL: $it" }
                 } else {
                     listing.navigate(BASE, Page.NavigateOptions().setTimeout(budget.timeoutMs(15_000)))
                     listing.waitForSelector("mc-nav-tree-large-item > a[href*='-c-']",
@@ -208,6 +208,9 @@ class MacrocenterScraper(
         fun productLinks(doc: Document): List<String> = doc.select("a[href*='-p-']")
             .map { it.absUrl("href").substringBefore('?').substringBefore('#') }
             .filter { isCatalogUrl(it, "-p-") }.distinct()
+
+        fun isSeedUrl(value: String): Boolean =
+            isCatalogUrl(value, "-c-") || isCatalogUrl(value, "-l-")
 
         private fun isCatalogUrl(value: String, marker: String): Boolean = runCatching {
             val uri = URI(value)

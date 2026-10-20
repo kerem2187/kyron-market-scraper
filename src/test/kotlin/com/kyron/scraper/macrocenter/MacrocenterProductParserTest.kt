@@ -56,4 +56,11 @@ class MacrocenterProductParserTest {
         assertEquals(listOf("${MacrocenterScraper.BASE}/sut-c-116eb"), MacrocenterScraper.categoryLinks(doc))
         assertEquals(listOf("${MacrocenterScraper.BASE}/sut-p-abcd"), MacrocenterScraper.productLinks(doc))
     }
+    @Test fun acceptsOnlySameOriginCategoryAndCuratedListSeeds() {
+        assertTrue(MacrocenterScraper.isSeedUrl("https://www.macrocenter.com.tr/macropicks-l-8d03038"))
+        assertTrue(MacrocenterScraper.isSeedUrl("https://www.macrocenter.com.tr/sut-c-116eb"))
+        assertFalse(MacrocenterScraper.isSeedUrl("https://evil.test/macropicks-l-8d03038"))
+        assertFalse(MacrocenterScraper.isSeedUrl("http://www.macrocenter.com.tr/macropicks-l-8d03038"))
+        assertFalse(MacrocenterScraper.isSeedUrl("https://www.macrocenter.com.tr/sut-p-123"))
+    }
 }

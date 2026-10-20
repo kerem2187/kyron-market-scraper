@@ -7,6 +7,10 @@ on:
         description: "Comma-separated source slugs; 'all' means verified sources only"
         default: "off"
         required: true
+      seed_urls:
+        description: "Optional Macrocenter category/list URLs, comma-separated; blank discovers categories"
+        default: ""
+        required: false
       max_minutes:
         description: "Application run-time budget in minutes (Macrocenter: 1-30)"
         default: "10"
@@ -45,6 +49,7 @@ jobs:
       MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
       MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '30' }}
       MACROCENTER_MAX_LISTING_PAGES: "3"
+      MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls }}
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       ENABLED_CHAINS: ${{ github.event.inputs.chains }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
