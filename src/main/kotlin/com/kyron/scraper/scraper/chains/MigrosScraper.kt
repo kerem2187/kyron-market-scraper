@@ -27,12 +27,13 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
     private val base = "https://www.migros.com.tr"
 
     override fun seedUrls(): List<String> = listOf(
+        // Verified packaged-goods categories first: loose produce rarely exposes GTINs.
+        "$base/uzun-omurlu-sut-c-40a",
+        "$base/atistirmalik-c-113fb",
         "$base/meyve-sebze-c-2",
         "$base/et-tavuk-balik-c-3",
-        "$base/sut-kahvaltilik-c-4",
         "$base/temel-gida-c-5b",
         "$base/meze-hazir-yemek-donuk-c-6",
-        "$base/atistirmalik-c-7",
         "$base/icecek-c-8",
         "$base/deterjan-temizlik-c-9",
         "$base/kisisel-bakim-kozmetik-c-10",
@@ -42,7 +43,7 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
 
     override fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->
         var captured: JsonObject? = null
-        val endpoint = Pattern.compile("https://www\\.migros\\.com\\.tr/rest/products/[0-9]+(?:\\?.*)?")
+        val endpoint = Pattern.compile("https://www\\.migros\\.com\\.tr/rest/products/screens/[0-9]+(?:\\?.*)?")
         page.route(endpoint) { route ->
             val response = route.fetch(Route.FetchOptions().setTimeout(15_000.0))
             try {

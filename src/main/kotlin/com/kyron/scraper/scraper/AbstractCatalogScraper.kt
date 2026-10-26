@@ -39,13 +39,14 @@ abstract class AbstractCatalogScraper(
             var pageUrl: String? = seed
             var pages = 0
             while (pageUrl != null && pages < maxPagesPerSeed) {
+                checkTime()
                 val current = pageUrl
                 val listing = runCatching { fetcher.getHtml(current) }
                     .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] listing failed $current: ${it.message}" } }
                     .getOrNull() ?: break
                 for (link in productLinks(listing)) {
                     checkTime()
-                if (!visited.add(link)) continue
+                    if (!visited.add(link)) continue
                     val product = runCatching { scrapeProduct(link) }
                         .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] product failed $link: ${it.message}" } }
                         .getOrNull()

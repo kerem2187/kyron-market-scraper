@@ -26,12 +26,14 @@ fun main(args: Array<String>) = runBlocking {
                 if (product != null && seen.add(product.barcode!!)) emit(product)
             }
         }.take(3).collect { product ->
+            println("IMAGE_CANDIDATE source=$slug barcode=${product.barcode} image=${product.sourceImageUrl}")
             val conn = URI(product.sourceImageUrl!!).toURL().openConnection() as HttpURLConnection
             try {
                 conn.setRequestProperty("User-Agent", Config.userAgent)
                 conn.connectTimeout = 10_000; conn.readTimeout = 10_000
                 check(conn.responseCode in 200..299) { "Image HTTP ${conn.responseCode}" }
-                check(conn.contentType?.startsWith("image/") == true) { "Not an image response" }
+                // Some CDNs return application/octet-stream for valid JPEGs.
+                // Decode the actual bytes instead of trusting/requiring the MIME header.
                 val bytes = conn.inputStream.use { it.readNBytes(8 * 1024 * 1024 + 1) }
                 check(bytes.size <= 8 * 1024 * 1024) { "Image exceeds 8 MiB" }
                 val image = ImageIO.read(bytes.inputStream()) ?: error("Image cannot be decoded")

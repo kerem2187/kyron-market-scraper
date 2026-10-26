@@ -63,4 +63,15 @@ class MacrocenterProductParserTest {
         assertFalse(MacrocenterScraper.isSeedUrl("http://www.macrocenter.com.tr/macropicks-l-8d03038"))
         assertFalse(MacrocenterScraper.isSeedUrl("https://www.macrocenter.com.tr/sut-p-123"))
     }
+
+    @Test fun parsesMigrosScreenWrapperWithoutInventingProduceBarcode() {
+        val body = javaClass.getResource("/migros/product-screen.json")!!.readText()
+        val source = "https://www.migros.com.tr/patates-dokme-kg-p-1afabd0"
+        val data = assertNotNull(Parser.detail(body, source))
+        val product = assertNotNull(Parser.product(data, source))
+        assertEquals("Patates Dökme Kg", product.name)
+        assertNull(product.barcode) // sku/id is not a barcode.
+        assertTrue(product.sourceImageUrl!!.contains("/sanalmarket/product/28290000/"))
+        assertNull(Parser.detail(body, "https://www.migros.com.tr/different-p-123"))
+    }
 }

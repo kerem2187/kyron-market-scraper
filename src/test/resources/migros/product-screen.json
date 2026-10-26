@@ -1,0 +1,35 @@
+{
+  "successful": true,
+  "data": {
+    "storeProductInfoDTO": {
+      "name": "Patates Dökme Kg",
+      "brand": {
+        "name": "Reyondan",
+        "id": 492,
+        "prettyName": "reyondan-b-1ec"
+      },
+      "prettyName": "patates-dokme-kg-p-1afabd0",
+      "images": [
+        {
+          "urls": {
+            "PRODUCT_LIST": "https://images.migrosone.com/sanalmarket/product/28290000/28290000_1-2e2447-105x105.jpg",
+            "PRODUCT_DETAIL": "https://images.migrosone.com/sanalmarket/product/28290000/28290000_1-2e2447.jpg",
+            "PRODUCT_HD": "https://images.migrosone.com/sanalmarket/product/28290000/28290000_1-2e2447-1650x1650.jpg",
+            "CART": "https://images.migrosone.com/sanalmarket/product/28290000/28290000_1-2e2447-46x46.jpg"
+          },
+          "productId": 20000028290000
+        }
+      ],
+      "productSafetyInfo": {
+        "productSupplierInfo": {
+          "noSupplierInfoMessage": "İşletmeci / Üretici / İthalatçı / Dağıtıcı bilgileri şu anda mevcut değildir. Bilgilerin hazır hale getirilmesi için çalışmalarımız devam etmektedir."
+        },
+        "productSafetyImageInfo": {
+          "noSafetyImageMessage": "Ürün güvenliği görseli şu anda mevcut değildir. Bilginin hazır hale getirilmesi için çalışmalarımız devam etmektedir."
+        }
+      },
+      "sku": "28290000",
+      "id": 20000028290000
+    }
+  }
+}
