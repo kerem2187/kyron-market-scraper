@@ -49,7 +49,7 @@ class MacrocenterScraper(
         try {
             browser.withContext { context ->
                 val listing = context.newPage()
-                val detail = context.newPage()
+                var detail = context.newPage()
                 listing.setDefaultTimeout(12_000.0)
                 detail.setDefaultTimeout(12_000.0)
                 var currentUrl = ""
@@ -58,19 +58,24 @@ class MacrocenterScraper(
 
                 // Fetch via Playwright's request client and fulfill the original browser request.
                 // Its body is retained independently of Chromium's Network.getResponseBody cache.
-                detail.route(DETAIL_URL) { route ->
-                    try {
-                        val response = route.fetch(Route.FetchOptions().setTimeout(budget.timeoutMs(12_000)))
+                fun configureDetail() {
+                    detail.setDefaultTimeout(12_000.0)
+                    detail.route(DETAIL_URL) { route ->
                         try {
-                            if (response.ok()) captured = MacrocenterProductParser.detail(response.text(), currentUrl)
-                            else captureError = "detail HTTP ${response.status()}"
-                            route.fulfill(Route.FulfillOptions().setResponse(response))
-                        } finally { response.dispose() }
-                    } catch (e: Exception) {
-                        captureError = e.message
-                        runCatching { route.abort() }
+                            val response = route.fetch(Route.FetchOptions().setTimeout(budget.timeoutMs(12_000)))
+                            try {
+                                if (response.ok()) captured = MacrocenterProductParser.detail(response.text(), currentUrl)
+                                else captureError = "detail HTTP ${response.status()}"
+                                route.fulfill(Route.FulfillOptions().setResponse(response))
+                            } finally { response.dispose() }
+                        } catch (e: Exception) {
+                            captureError = e.message
+                            runCatching { route.abort() }
+                        }
                     }
+
                 }
+                configureDetail()
 
                 val categories = if (seeds.isNotEmpty()) seeds.onEach {
                     require(isSeedUrl(it)) { "Invalid Macrocenter category/list URL: $it" }
@@ -104,6 +109,9 @@ class MacrocenterScraper(
                             if (!visited.add(url)) continue
                             budget.beforeProduct() // Counts attempts, including failed requests and missing barcodes.
                             delay(Config.requestDelayMs)
+                            detail.close()
+                            detail = context.newPage()
+                            configureDetail()
                             currentUrl = url
                             captured = null
                             captureError = null

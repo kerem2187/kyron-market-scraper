@@ -28,4 +28,20 @@ class ProductExtractionTest {
         assertEquals("https://example.com/k.jpg", p.sourceImageUrl)
         assertNull(p.barcode)
     }
+
+    @Test fun doesNotUseRecommendedProductsBarcode() {
+        val html = """<script type="application/ld+json">[
+          {"@type":"Product","name":"Requested","url":"https://example.com/p"},
+          {"@type":"Product","name":"Recommended","url":"https://example.com/other","gtin13":"8690504084686"}
+        ]</script>"""
+        val p = assertNotNull(ProductExtraction.fromJsonLd(Jsoup.parse(html), "https://example.com/p"))
+        assertEquals("Requested", p.name)
+        assertNull(p.barcode)
+    }
+    @Test fun rejectsAmbiguousProductsWithoutIdentity() {
+        val html = """<script type="application/ld+json">[
+          {"@type":"Product","name":"One"}, {"@type":"Product","name":"Two","gtin13":"8690504084686"}
+        ]</script>"""
+        assertNull(ProductExtraction.fromJsonLd(Jsoup.parse(html), "https://example.com/p"))
+    }
 }

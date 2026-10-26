@@ -10,7 +10,7 @@ class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner) {
     private val all: List<ChainScraper> = listOf(
         OpenFoodFactsImporter(), MarketFiyatiImporter(), MigrosScraper(browser),
         CarrefourSaScraper(browser), MacrocenterScraper(browser, fetcher), SokScraper(fetcher),
-        A101Scraper(fetcher), FileMarketScraper(fetcher), HakmarScraper(fetcher),
+        A101Scraper(browser), FileMarketScraper(fetcher), HakmarScraper(fetcher),
     )
 
     fun resolve(enabled: List<String>): List<ChainScraper> {

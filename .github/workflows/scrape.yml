@@ -8,7 +8,7 @@ on:
     inputs:
       chains:
         description: "Comma-separated source slugs; 'all' means verified sources only"
-        default: "macrocenter,migros,carrefoursa,sok,a101,file,hakmar,off"
+        default: "macrocenter,migros,sok,off"
         required: true
       seed_urls:
         description: "Optional Macrocenter category/list URLs, comma-separated; blank discovers categories"
@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -54,7 +54,7 @@ jobs:
       MACROCENTER_MAX_LISTING_PAGES: "3"
       MACROCENTER_SEED_URLS: ${{ github.event_name == 'schedule' && 'https://www.macrocenter.com.tr/macropicks-l-8d03038' || github.event.inputs.seed_urls }}
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      ENABLED_CHAINS: ${{ github.event.inputs.chains || 'macrocenter,migros,carrefoursa,sok,a101,file,hakmar,off' }}
+      ENABLED_CHAINS: ${{ github.event.inputs.chains || 'macrocenter,migros,sok,off' }}
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
     steps:
       - uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
       - name: Test
         run: gradle --no-daemon test
       - name: Install Chromium
-        if: contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'carrefoursa') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
+        if: contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
         run: gradle --no-daemon installBrowsers
       - name: Run scraper (isolated source budgets)
         id: scrape

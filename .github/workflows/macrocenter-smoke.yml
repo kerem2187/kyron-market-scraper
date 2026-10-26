@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     env:
       MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls }}

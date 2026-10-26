@@ -12,7 +12,7 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.1")
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.zxing:javase:3.5.3")
-    implementation("com.microsoft.playwright:playwright:1.47.0")
+    implementation("com.microsoft.playwright:playwright:1.64.0")
     implementation(platform("com.google.cloud:libraries-bom:26.44.0"))
     implementation("com.google.cloud:google-cloud-firestore")
     implementation("com.google.auth:google-auth-library-oauth2-http")
@@ -33,7 +33,9 @@ tasks.register<JavaExec>("installBrowsers") {
     description = "Downloads Chromium used by Playwright."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.microsoft.playwright.CLI")
-    args("install", "--with-deps", "chromium")
+    // GitHub browser workflows pin ubuntu-22.04, which already supplies Chromium OS libraries.
+    // Do not run a full apt upgrade in every matrix job (it previously exhausted the job timeout).
+    args("install", "chromium")
 }
 
 // Standalone Firestore -> Google Sheets/AppSheet catalog synchronization.
@@ -50,4 +52,12 @@ tasks.register<JavaExec>("macrocenterSmoke") {
     description = "Prints up to three Macrocenter products without database writes."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.kyron.scraper.macrocenter.MacrocenterSmokeMainKt")
+}
+
+// Read-only complete-record test, selected with --args=<source>.
+tasks.register<JavaExec>("sourceSmoke") {
+    group = "verification"
+    description = "Validates three products with name, GTIN and downloadable image; no database writes."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.SourceSmokeMainKt")
 }

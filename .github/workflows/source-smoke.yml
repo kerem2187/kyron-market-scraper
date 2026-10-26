@@ -1,0 +1,54 @@
+name: Source Complete Product Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  complete-products:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [macrocenter, migros, sok, off]
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      REQUEST_DELAY_MS: "3000"
+      MAX_RUN_MINUTES: "3"
+      MACROCENTER_MAX_RUN_MINUTES: "3"
+      MACROCENTER_MAX_PRODUCTS: "30"
+      MACROCENTER_MAX_LISTING_PAGES: "1"
+      MACROCENTER_SEED_URLS: "https://www.macrocenter.com.tr/macropicks-l-8d03038"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.10"
+      - name: Unit tests and build
+        run: gradle --no-daemon test build
+      - name: Install Chromium
+        if: contains('macrocenter,migros', matrix.source)
+        run: gradle --no-daemon installBrowsers
+      - name: Validate three complete products (read-only)
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=15s 300s gradle --no-daemon sourceSmoke --args="${{ matrix.source }}" 2>&1 | tee source-smoke.log
+      - name: Preserve source diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-smoke-${{ matrix.source }}
+          path: |
+            source-smoke.log
+            build/test-results/test/*.xml
+          retention-days: 7

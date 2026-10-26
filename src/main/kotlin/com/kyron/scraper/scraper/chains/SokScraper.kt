@@ -3,6 +3,8 @@ package com.kyron.scraper.scraper.chains
 import com.kyron.scraper.http.PoliteFetcher
 import com.kyron.scraper.scraper.AbstractCatalogScraper
 import org.jsoup.nodes.Document
+import com.kyron.scraper.model.RawProduct
+import com.kyron.scraper.macrocenter.LabelBarcodeDecoder
 
 /** SOK Market (server-rendered catalog -> HTTP). */
 class SokScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher) {
@@ -12,22 +14,28 @@ class SokScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher) {
 
     private val base = "https://www.sokmarket.com.tr"
 
-    override fun seedUrls(): List<String> = listOf(
-        "$base/meyve-sebze-c-1",
-        "$base/sut-kahvaltilik-c-2",
-        "$base/temel-gida-c-3",
-        "$base/atistirmalik-c-4",
-        "$base/icecek-c-5",
-        "$base/temizlik-c-6",
-        "$base/kisisel-bakim-c-7",
-        // TODO: complete category list.
-    )
+    override fun seedUrls(): List<String> = listOf("$base/kahvaltilik-c-890", base)
 
     override fun productLinks(listing: Document): List<String> =
         listing.select("a[href*='-p-']")
             .map { it.absUrl("href") }
             .filter { it.isNotBlank() }
             .distinct()
+
+    override suspend fun scrapeProduct(url: String): RawProduct? {
+        val doc = fetcher.getHtml(url)
+        val data = SokProductParser.detail(doc, url) ?: error("Sok: no matching current-product data")
+        var product = SokProductParser.product(data, url) ?: return null
+        if (product.barcode == null) {
+            for (image in SokProductParser.images(data).take(4)) {
+                val code = runCatching { LabelBarcodeDecoder.decode(fetcher.getBytes(image, 10_000, 1)) }
+                    .getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; null } ?: continue
+                product = product.copy(barcode = code)
+                break
+            }
+        }
+        return product
+    }
 
     override fun nextPage(listing: Document, current: String): String? {
         val next = listing.selectFirst("a[rel=next], a.next, a[aria-label=Sonraki]")?.absUrl("href")

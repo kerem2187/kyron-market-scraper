@@ -14,7 +14,9 @@ object MacrocenterProductParser {
     fun detail(body: String, sourceUrl: String): JsonObject? = runCatching {
         val root = json.parseToJsonElement(body).jsonObject
         if (root["successful"]?.jsonPrimitive?.booleanOrNull != true) return null
-        val data = root["data"] as? JsonObject ?: return null
+        val envelope = root["data"] as? JsonObject ?: return null
+        // Migros screens API wraps the same product schema; Macrocenter returns it directly.
+        val data = envelope["storeProductInfoDTO"] as? JsonObject ?: envelope
         val expected = URI(sourceUrl).path.trim('/').substringBefore('?')
         data.takeIf { JsonLd.string(it, "prettyName") == expected }
     }.getOrNull()
