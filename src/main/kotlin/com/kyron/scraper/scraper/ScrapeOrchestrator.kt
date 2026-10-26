@@ -16,6 +16,7 @@ private class BudgetReached(message: String) : RuntimeException(message)
 
 class ScrapeOrchestrator(
     private val repo: FirestoreRepository,
+    private val images: com.kyron.scraper.util.ProductImageVerifier = com.kyron.scraper.util.ProductImageVerifier(),
     private val deadlineMs: Long = System.currentTimeMillis() + Config.maxRunMinutes * 60_000,
 ) {
     suspend fun run(scraper: ChainScraper): ChainScrapeReport {
@@ -33,8 +34,13 @@ class ScrapeOrchestrator(
                 val complete = ProductQuality.normalized(raw)
                 if (complete == null) { skipped++; return@scrape }
                 val barcode = complete.barcode!!
-                withBarcode++
                 if (!seenThisRun.add(barcode)) { skipped++; return@scrape }
+                if (!images.verify(complete.sourceImageUrl!!)) {
+                    skipped++
+                    log.warn { "[${scraper.slug}] IMAGE_REJECTED barcode=$barcode" }
+                    return@scrape
+                }
+                withBarcode++
                 try {
                     val product = Product(
                         barcode = barcode,

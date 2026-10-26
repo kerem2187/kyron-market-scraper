@@ -1,21 +1,18 @@
 # Google Sheets / AppSheet catalog sync
 
-The scraper can synchronize canonical Firestore `products` into the existing `KATALOG` tab.
-
-Required headers, in order:
+Target: the existing spreadsheet's `KATALOG` tab, with headers:
 
 `BARKOD | URUNADI | KategoriAdi | AltKategoriAdi | UrunGorseli`
 
-Behavior:
-- `BARKOD` is the key and is written as text with `RAW` input mode.
-- Existing non-empty manual values are preserved.
-- Blank name/category/image fields are enriched from Firestore.
-- New barcodes are appended.
-- Duplicate barcode rows are collapsed to the first row.
-- `URUN_TAKIP` is never modified.
+- Barcode is the key and new rows use `RAW` input (text, retaining leading zeros).
+- New rows must have checksum-valid barcode, product name and HTTPS image. Incomplete legacy records are skipped/reported, not exported as new incomplete entries.
+- Existing non-empty/manual values are preserved. Only blank name/category/image cells are filled by exact row/cell address; row positions and existing duplicate rows are not compacted or deleted.
+- New barcode rows are appended; existing barcodes are not appended again on a repeated run.
+- Every append/enrichment is read back and verified. An API/read-back failure fails the sync rather than claiming success.
+- `URUN_TAKIP` and columns outside the catalog range are not rewritten.
+- Daily post-scrape sync and the 05:30 Istanbul fallback/manual workflow use one shared writer lock.
+- No blind retry of ambiguous append requests: a subsequent run re-reads barcode keys to avoid duplicate appends.
 
-Setup:
-1. Enable Google Sheets API in project `kyron-21`.
-2. Share the spreadsheet as Editor with `firebase-adminsdk-fbsvc@kyron-21.iam.gserviceaccount.com`.
-3. Keep `GCP_SA_KEY` and `GCP_PROJECT_ID` in GitHub Actions secrets.
-4. Run `Kyron Market Scrape`; successful scraping is followed by catalog sync.
+The Google Sheets API must be enabled and the spreadsheet shared as Editor with the service account configured in the existing GitHub Actions secrets. Those credentials remain inside Actions; do not paste them into chat.
+
+Updating this sheet does not force immediate refresh of every AppSheet client. The app must use this spreadsheet/tab and have suitable client sync settings. AppSheet URL/access is needed to verify those settings; Quick sync alone does not instantly display external Google Sheets edits.

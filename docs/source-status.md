@@ -33,3 +33,9 @@ Son altı kaynaklı canlı turda A101 ve CarrefourSA ürün keşfinde başarıs�
 ## Dört kaynakla devam kararı
 
 Kullanıcı yalnızca çalışan kaynaklarla devam edilmesini istedi; A101/CarrefourSA için izinli API bulunmuyor. Son canlı turda A101 üç kategoride HTTP 403 “Just a moment...”, CarrefourSA üç kategoride HTTP 403 “Attention Required! | Cloudflare” döndürdü. İkisi aktif kapsamdan çıkarıldı; erişim engeli aşılmaya çalışılmaz. Dört kaynaklı CI ve canlı testler yeşil olmadan ana dala birleştirilmez.
+
+## Daily reliability update
+
+OFF remains enabled at the user's request. The first production run on merge 3540668 passed Macrocenter/Migros/ŞOK and Sheets delivery but failed on OFF page 2 after 97 unchanged complete records from page 1. The follow-up adds conservative OFF rate limiting, Retry-After-aware retries and a dedicated page-2 live test. Failures are still fatal, not relabeled success.
+
+Daily ingestion now attempts discovered public categories instead of restricting Macrocenter to Macropicks. Four source jobs are independent; the final verified KATALOG sync runs after all attempts, including on partial source failure. Budgets remain explicit. This widens coverage but does not prove a complete market inventory.

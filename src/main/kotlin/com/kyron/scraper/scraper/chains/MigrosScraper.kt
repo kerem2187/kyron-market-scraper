@@ -27,19 +27,22 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
     private val base = "https://www.migros.com.tr"
 
     override fun seedUrls(): List<String> = listOf(
-        // Verified packaged-goods categories first: loose produce rarely exposes GTINs.
         "$base/uzun-omurlu-sut-c-40a",
         "$base/atistirmalik-c-113fb",
-        "$base/meyve-sebze-c-2",
-        "$base/et-tavuk-balik-c-3",
-        "$base/temel-gida-c-5b",
-        "$base/meze-hazir-yemek-donuk-c-6",
-        "$base/icecek-c-8",
-        "$base/deterjan-temizlik-c-9",
-        "$base/kisisel-bakim-kozmetik-c-10",
-        "$base/bebek-c-11",
-        // TODO: complete category list from the site's category menu.
     )
+
+    override fun catalogSeeds(): List<String> {
+        val discovered = runCatching { browser.withPage { page ->
+            page.navigate(base)
+            page.waitForSelector("a[href*='-c-']", Page.WaitForSelectorOptions().setTimeout(20_000.0))
+            com.kyron.scraper.util.CatalogUrls.links(Jsoup.parse(page.content(), base), "www.migros.com.tr", "-c-")
+        } }.getOrElse {
+            println("CATALOG_COVERAGE source=$slug categoryDiscoveryFailed=true fallback=true fullCatalogGuaranteed=false")
+            emptyList()
+        }
+        println("CATALOG_COVERAGE source=$slug categories=${discovered.size} fullCatalogGuaranteed=false")
+        return (seedUrls() + discovered).distinct()
+    }
 
     override fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->
         var captured: JsonObject? = null
@@ -80,8 +83,6 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
     }
 
     override fun productLinks(listing: Document): List<String> =
-        listing.select("a[href*='-p-']")
-            .map { it.absUrl("href") }
-            .filter { it.isNotBlank() }
-            .distinct()
+        com.kyron.scraper.util.CatalogUrls.links(listing, "www.migros.com.tr", "-p-")
+
 }

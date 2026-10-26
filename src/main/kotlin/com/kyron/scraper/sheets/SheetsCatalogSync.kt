@@ -16,7 +16,8 @@ private val log = KotlinLogging.logger {}
 
 /**
  * Upserts the canonical Firestore product catalog into the existing AppSheet KATALOG tab.
- * Existing non-empty manual values win; Firestore only fills blanks and appends new barcodes.
+ * Existing non-empty manual values win; only blank cells are filled and new barcodes appended.
+ * Never rewrites/compacts the whole table. Every change is read back before success.
  */
 class SheetsCatalogSync(private val db: Firestore) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -27,75 +28,73 @@ class SheetsCatalogSync(private val db: Firestore) {
         require(Config.sheetsSpreadsheetId.isNotBlank()) { "SHEETS_SPREADSHEET_ID is required" }
         val products = loadProducts()
         val existing = readCatalog()
-        val ordered = LinkedHashMap<String, CatalogRow>()
-        var duplicates = 0
-        existing.forEach { row ->
-            if (row.barcode.isBlank()) return@forEach
-            if (ordered.putIfAbsent(row.barcode, row) != null) duplicates++
+        val plan = CatalogSyncPlan.build(products, existing)
+        if (existing.isEmpty()) {
+            // Only initializes/rewrites the known header, never clears existing product rows.
+            request("PUT", valuesUrl("A1:E1") + "?valueInputOption=RAW", buildJsonObject {
+                put("values", buildJsonArray { add(row(*HEADERS.toTypedArray())) })
+            }.toString())
         }
-
-        var inserted = 0
-        var enriched = 0
-        var unchanged = 0
-        for (product in products.sortedBy { it.barcode }) {
-            val current = ordered[product.barcode]
-            if (current == null) {
-                ordered[product.barcode] = CatalogRow.fromProduct(product)
-                inserted++
-            } else {
-                val merged = current.mergeMissingFrom(product)
-                ordered[product.barcode] = merged
-                if (merged == current) unchanged++ else enriched++
+        for (chunk in plan.updates.chunked(500)) {
+            val body = buildJsonObject {
+                put("valueInputOption", "RAW")
+                put("data", buildJsonArray {
+                    chunk.forEach { change -> add(buildJsonObject {
+                        put("range", "'${Config.sheetsCatalogTab}'!${change.column}${change.rowNumber}")
+                        put("values", buildJsonArray { add(row(change.value)) })
+                    }) }
+                })
+            }.toString()
+            request("POST", "https://sheets.googleapis.com/v4/spreadsheets/${Config.sheetsSpreadsheetId}/values:batchUpdate", body)
+        }
+        for (chunk in plan.additions.chunked(500)) {
+            val body = buildJsonObject {
+                put("values", buildJsonArray { chunk.forEach { add(row(it.barcode, it.name, it.category, it.subcategory, it.imageUrl)) } })
+            }.toString()
+            // Do not blindly retry append after an ambiguous network failure. A new run re-reads keys.
+            request("POST", valuesUrl("A:E") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", body)
+        }
+        val verified = readCatalog()
+        val byBarcode = verified.groupBy { it.row.barcode }
+        plan.additions.forEach { expected ->
+            check(byBarcode[expected.barcode].orEmpty().any { it.row == expected }) {
+                "KATALOG read-back failed for appended barcode ${expected.barcode}"
             }
         }
-        writeCatalog(ordered.values.toList())
-        return CatalogSyncReport(
-            firestoreProducts = products.size,
-            existingRows = existing.size,
-            inserted = inserted,
-            enriched = enriched,
-            unchanged = unchanged,
-            duplicatesRemoved = duplicates,
-            finalRows = ordered.size,
-        ).also { log.info { "SHEETS_SYNC $it" } }
+        plan.updates.forEach { expected ->
+            val actual = verified.firstOrNull { it.rowNumber == expected.rowNumber }?.row
+            val value = when (expected.column) { "B" -> actual?.name; "C" -> actual?.category; "E" -> actual?.imageUrl; else -> null }
+            check(value == expected.value) { "KATALOG read-back failed at ${expected.column}${expected.rowNumber}" }
+        }
+        return CatalogSyncReport(products.size, existing.size, plan.inserted, plan.enriched, plan.unchanged,
+            duplicatesRemoved = 0, finalRows = verified.size, incompleteSkipped = plan.incompleteSkipped,
+            duplicateRowsObserved = plan.duplicateRows)
+            .also { log.info { "SHEETS_SYNC $it verified=true" } }
     }
 
     private fun loadProducts(): List<Product> = db.collection(Config.firestoreCollection).get().get().documents
         .mapNotNull { it.toProductOrNull() }
 
-    private fun readCatalog(): List<CatalogRow> {
+    private fun readCatalog(): List<IndexedCatalogRow> {
         val response = request("GET", valuesUrl("A1:E"))
         val values = json.parseToJsonElement(response).jsonObject["values"]?.jsonArray ?: JsonArray(emptyList())
         if (values.isEmpty()) return emptyList()
         val header = values.first().jsonArray.map { it.jsonPrimitive.content }
-        val expected = listOf("BARKOD", "URUNADI", "KategoriAdi", "AltKategoriAdi", "UrunGorseli")
+        val expected = HEADERS
         require(header.take(expected.size) == expected) {
             "Unexpected KATALOG headers. Expected=$expected actual=${header.take(expected.size)}"
         }
-        return values.drop(1).mapNotNull { element ->
+        return values.drop(1).mapIndexedNotNull { index, element ->
             val row = element.jsonArray.map { it.jsonPrimitive.content }
             val barcode = row.getOrElse(0) { "" }.trim()
-            if (barcode.isBlank()) null else CatalogRow(
+            if (barcode.isBlank()) null else IndexedCatalogRow(index + 2, CatalogRow(
                 barcode = barcode,
                 name = row.getOrElse(1) { "" }.trim(),
                 category = row.getOrElse(2) { "" }.trim(),
                 subcategory = row.getOrElse(3) { "" }.trim(),
                 imageUrl = row.getOrElse(4) { "" }.trim(),
-            )
+            ))
         }
-    }
-
-    private fun writeCatalog(rows: List<CatalogRow>) {
-        val allRows = buildJsonArray {
-            add(row("BARKOD", "URUNADI", "KategoriAdi", "AltKategoriAdi", "UrunGorseli"))
-            rows.forEach { add(row(it.barcode, it.name, it.category, it.subcategory, it.imageUrl)) }
-        }
-        val body = buildJsonObject {
-            put("range", "'${Config.sheetsCatalogTab}'!A1:E${rows.size + 1}")
-            put("majorDimension", "ROWS")
-            put("values", allRows)
-        }.toString()
-        request("PUT", valuesUrl("A1:E${rows.size + 1}") + "?valueInputOption=RAW", body)
     }
 
     private fun row(vararg values: String): JsonArray = buildJsonArray { values.forEach(::add) }
@@ -120,11 +119,17 @@ class SheetsCatalogSync(private val db: Firestore) {
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.outputStream.use { it.write(body.toByteArray(StandardCharsets.UTF_8)) }
         }
-        val code = connection.responseCode
-        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-        if (code !in 200..299) error("Sheets API HTTP $code: ${response.take(500)}")
-        return response
+        try {
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            check(code in 200..299) { "Sheets API HTTP $code" }
+            return response
+        } finally { connection.disconnect() }
+    }
+
+    companion object {
+        val HEADERS = listOf("BARKOD", "URUNADI", "KategoriAdi", "AltKategoriAdi", "UrunGorseli")
     }
 
     private fun DocumentSnapshot.toProductOrNull(): Product? {

@@ -20,6 +20,7 @@ jobs:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       REQUEST_DELAY_MS: "3000"
       MAX_RUN_MINUTES: "3"
+      CATALOG_MAX_LISTING_PAGES: "1"
       MACROCENTER_MAX_RUN_MINUTES: "3"
       MACROCENTER_MAX_PRODUCTS: "30"
       MACROCENTER_MAX_LISTING_PAGES: "1"
@@ -43,6 +44,18 @@ jobs:
         run: |
           set -o pipefail
           timeout --signal=TERM --kill-after=15s 300s gradle --no-daemon sourceSmoke --args="${{ matrix.source }}" 2>&1 | tee source-smoke.log
+      - name: Validate public category discovery (read-only)
+        if: matrix.source != 'off'
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=15s 180s gradle --no-daemon catalogDiscoverySmoke --args="${{ matrix.source }}" 2>&1 | tee catalog-discovery.log
+      - name: Validate OFF second-page access (read-only)
+        if: matrix.source == 'off'
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout --signal=TERM --kill-after=15s 300s gradle --no-daemon offPaginationSmoke 2>&1 | tee off-pagination.log
       - name: Preserve source diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,5 +63,7 @@ jobs:
           name: source-smoke-${{ matrix.source }}
           path: |
             source-smoke.log
+            off-pagination.log
+            catalog-discovery.log
             build/test-results/test/*.xml
           retention-days: 7

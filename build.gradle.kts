@@ -61,3 +61,18 @@ tasks.register<JavaExec>("sourceSmoke") {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.kyron.scraper.SourceSmokeMainKt")
 }
+
+// Explicitly exercises OFF page 2; the three-product smoke alone cannot prove pagination.
+tasks.register<JavaExec>("offPaginationSmoke") {
+    group = "verification"
+    description = "Reads two OFF search pages and verifies sample images without database credentials."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.off.OffPaginationSmokeMainKt")
+}
+
+tasks.register<JavaExec>("catalogDiscoverySmoke") {
+    group = "verification"
+    description = "Reads public category links, without database credentials or product writes."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.CatalogDiscoverySmokeMainKt")
+}

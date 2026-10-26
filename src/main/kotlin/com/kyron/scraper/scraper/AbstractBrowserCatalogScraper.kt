@@ -22,6 +22,7 @@ abstract class AbstractBrowserCatalogScraper(
 ) : ChainScraper {
 
     protected abstract fun seedUrls(): List<String>
+    protected open fun catalogSeeds(): List<String> = seedUrls()
     protected abstract fun productLinks(listing: Document): List<String>
 
     /** CSS selector to wait for before reading rendered content. */
@@ -32,7 +33,7 @@ abstract class AbstractBrowserCatalogScraper(
         var extracted = 0
         val deadline = System.currentTimeMillis() + com.kyron.scraper.config.Config.maxRunMinutes * 60_000
         fun checkTime() { check(System.currentTimeMillis() < deadline) { "Source run-time budget reached" } }
-        for (seed in seedUrls()) {
+        for (seed in catalogSeeds()) {
             checkTime()
             val links = runCatching { collectLinks(seed) }
                 .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] seed failed $seed: ${it.message}" }; println("CATALOG_FAILURE source=$slug seed=$seed reason=${it.message?.take(500)}") }
@@ -59,7 +60,24 @@ abstract class AbstractBrowserCatalogScraper(
             runCatching { page.waitForSelector(selector,
                 Page.WaitForSelectorOptions().setState(WaitForSelectorState.ATTACHED).setTimeout(45_000.0)) }
         }
-        val links = productLinks(Jsoup.parse(page.content(), page.url()))
+        val maxPasses = (System.getenv("CATALOG_MAX_LISTING_PAGES")?.toIntOrNull() ?: 10).also { require(it in 1..50) }
+        var passes = 1
+        var stable = 0
+        val found = linkedSetOf<String>()
+        while (true) {
+            found.addAll(productLinks(Jsoup.parse(page.content(), page.url())))
+            if (passes >= maxPasses || stable >= 2 || waitSelector == null) break
+            val previous = page.locator(waitSelector!!).count()
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            val advanced = runCatching { page.waitForFunction(
+                "arg => document.querySelectorAll(arg.selector).length > arg.count",
+                mapOf("selector" to waitSelector, "count" to previous),
+                Page.WaitForFunctionOptions().setTimeout(5_000.0)) }.isSuccess
+            if (advanced) stable = 0 else stable++
+            passes++
+        }
+        val links = found.toList()
+        println("CATALOG_COVERAGE source=$slug listingLinks=${links.size} scrollPasses=$passes capped=${passes >= maxPasses} fullCatalogGuaranteed=false")
         // Only bounded public diagnostics: never dump HTML, cookies or streamed session headers.
         println("CATALOG_DISCOVERY source=$slug status=$status links=${links.size} title=${page.title().take(120)}")
         check(links.isNotEmpty()) {

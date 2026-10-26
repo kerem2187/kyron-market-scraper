@@ -192,6 +192,7 @@ class MacrocenterScraper(
             stopReason = "error: ${e.message?.take(300)}"
             throw e
         } finally {
+            log.info { "[$slug] CATALOG_COVERAGE fullCatalogGuaranteed=false" }
             log.info { "[$slug] FINAL attempts=${budget.attempts} products=$discovered barcodes=$withBarcode errors=$errors stop=$stopReason" }
         }
         check(discovered > 0) { "Macrocenter: no products extracted; inspect access, timeouts and selectors" }
@@ -210,12 +211,11 @@ class MacrocenterScraper(
             if (e is MacrocenterBudgetReached || e is CancellationException) throw e
         }
 
-        fun categoryLinks(doc: Document): List<String> = doc.select("mc-nav-tree-large-item > a[href*='-c-']")
-            .map { it.absUrl("href") }.filter { isCatalogUrl(it, "-c-") }.distinct()
+        fun categoryLinks(doc: Document): List<String> =
+            com.kyron.scraper.util.CatalogUrls.links(doc, "www.macrocenter.com.tr", "-c-")
 
-        fun productLinks(doc: Document): List<String> = doc.select("a[href*='-p-']")
-            .map { it.absUrl("href").substringBefore('?').substringBefore('#') }
-            .filter { isCatalogUrl(it, "-p-") }.distinct()
+        fun productLinks(doc: Document): List<String> =
+            com.kyron.scraper.util.CatalogUrls.links(doc, "www.macrocenter.com.tr", "-p-")
 
         fun isSeedUrl(value: String): Boolean =
             isCatalogUrl(value, "-c-") || isCatalogUrl(value, "-l-")
