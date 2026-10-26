@@ -13,7 +13,7 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.zxing:javase:3.5.3")
     implementation("com.microsoft.playwright:playwright:1.64.0")
-    implementation(platform("com.google.cloud:libraries-bom:26.44.0"))
+    implementation(platform("com.google.cloud:libraries-bom:26.90.0"))
     implementation("com.google.cloud:google-cloud-firestore")
     implementation("com.google.auth:google-auth-library-oauth2-http")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
