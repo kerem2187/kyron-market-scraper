@@ -7,6 +7,9 @@ import kotlinx.coroutines.CancellationException
 import mu.KotlinLogging
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import com.microsoft.playwright.Page
+import com.microsoft.playwright.options.WaitForSelectorState
+import com.microsoft.playwright.options.WaitUntilState
 
 private val log = KotlinLogging.logger {}
 
@@ -32,7 +35,7 @@ abstract class AbstractBrowserCatalogScraper(
         for (seed in seedUrls()) {
             checkTime()
             val links = runCatching { collectLinks(seed) }
-                .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] seed failed $seed: ${it.message}" } }
+                .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] seed failed $seed: ${it.message}" }; println("CATALOG_FAILURE source=$slug seed=$seed reason=${it.message?.take(500)}") }
                 .getOrDefault(emptyList())
             for (link in links) {
                 checkTime()
@@ -47,9 +50,22 @@ abstract class AbstractBrowserCatalogScraper(
     }
 
     private fun collectLinks(seed: String): List<String> = browser.withPage { page ->
-        page.navigate(seed)
-        waitSelector?.let { runCatching { page.waitForSelector(it) } }
-        productLinks(Jsoup.parse(page.content(), seed))
+        val response = page.navigate(seed, Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED))
+        val status = response?.status() ?: 0
+        check(status in 200..299) {
+            "Catalog access failed: HTTP $status title=${page.title().take(120)}"
+        }
+        waitSelector?.let { selector ->
+            runCatching { page.waitForSelector(selector,
+                Page.WaitForSelectorOptions().setState(WaitForSelectorState.ATTACHED).setTimeout(45_000.0)) }
+        }
+        val links = productLinks(Jsoup.parse(page.content(), page.url()))
+        // Only bounded public diagnostics: never dump HTML, cookies or streamed session headers.
+        println("CATALOG_DISCOVERY source=$slug status=$status links=${links.size} title=${page.title().take(120)}")
+        check(links.isNotEmpty()) {
+            "No product links at $seed; HTTP $status title=${page.title().take(120)} selector=$waitSelector"
+        }
+        links
     }
 
     protected open fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->

@@ -4,10 +4,9 @@ Başarı ölçütü aynı ürüne ait ad, checksum-geçerli barkod ve gerçekten
 
 ## Doğrulanan temel kaynaklar
 
-- Macrocenter: önceki canlı turda üç farklı tam kayıt doğrulandı.
-- Open Food Facts: önceki canlı turda üç farklı tam kayıt doğrulandı.
+- Macrocenter, Migros, ŞOK ve Open Food Facts: `40304520683` numaralı salt okunur canlı turda her biri üç farklı tam kayıt testini geçti. Bu, tüm katalog için eksiksizlik garantisi değildir.
 
-## Güncellenen bağdaştırıcılar — yeni canlı doğrulama gerekli
+## Güncellenen bağdaştırıcılar
 
 - A101: gerçek `productDetail.attributes.barcodes`, `_p-` ürün bağlantıları, güncel kategori adresleri; HTTP yerine tarayıcı ile erişim.
 - Migros: `/rest/products/screens/{id}` ve `data.storeProductInfoDTO`; ambalaj/etiket barkodu okuma.
@@ -25,4 +24,8 @@ Aktif kapsam: Macrocenter, Migros, CarrefourSA, ŞOK, A101 ve Open Food Facts. B
 
 ## Test ortamı
 
-Tarayıcı iş akışları Playwright 1.47 destekli Ubuntu 22.04 üzerinde çalışır. Her işte tüm OS bağımlılıklarını apt ile yeniden kurmak yerine yalnızca Chromium indirilir. Önceki Migros turu ürün testine ulaşmadan OS kurulumu sırasında iş zaman aşımına uğramıştı.
+Tarayıcı iş akışları Ubuntu 22.04 üzerinde çalışır. Playwright 1.47 yerine 1.64 kullanılacak biçimde güncellendi; bu değişikliğin canlı test sonucu ayrıca doğrulanmalıdır. Her işte tüm OS bağımlılıklarını apt ile yeniden kurmak yerine yalnızca Chromium indirilir. Önceki Migros turu ürün testine ulaşmadan OS kurulumu sırasında iş zaman aşımına uğramıştı.
+
+## Açık sorunların tanılanması
+
+Son altı kaynaklı canlı turda A101 ve CarrefourSA ürün keşfinde başarısız oldu. Yeni tanılama HTTP durumunu, sınırlı sayfa başlığını ve bulunan ürün bağlantısı sayısını kaydeder; HTML, çerez veya oturum anahtarları kaydedilmez. HTTP erişim engeli başarılı veya boş katalog gibi gösterilmez. Güvenlik doğrulaması aşılmaya çalışılmaz.
