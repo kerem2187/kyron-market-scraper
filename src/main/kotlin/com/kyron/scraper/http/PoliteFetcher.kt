@@ -4,6 +4,7 @@ import com.kyron.scraper.config.Config
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.jsoup.HttpStatusException
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
@@ -33,12 +34,13 @@ class PoliteFetcher(
                     .get()
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is HttpStatusException && e.statusCode in 400..499 && e.statusCode != 429) throw e
                 lastError = e
                 attempt++
                 delay(delayMs * (attempt + 1))
             }
         }
-        throw RuntimeException("Failed to fetch $url after $maxRetries attempts", lastError)
+        throw RuntimeException("Failed to fetch $url after $maxRetries attempts: ${lastError?.message}", lastError)
     }
 
     /** Bounded image download sharing the same throttle/retry policy as HTML requests. */
@@ -58,7 +60,7 @@ class PoliteFetcher(
                 if (attempt + 1 < attempts) delay(delayMs * (attempt + 2))
             }
         }
-        throw RuntimeException("Failed to fetch image after $maxRetries attempts", lastError)
+        throw RuntimeException("Failed to fetch image after $maxRetries attempts: ${lastError?.message}", lastError)
     }
 
     private suspend fun throttle() = mutex.withLock {

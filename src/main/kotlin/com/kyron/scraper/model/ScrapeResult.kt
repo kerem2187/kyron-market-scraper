@@ -27,4 +27,6 @@ data class ChainScrapeReport(
     val failures: List<String> = emptyList(),
 ) {
     val written: Int get() = inserted + updated
+    /** Complete records include unchanged products; partial fatal failures never pass. */
+    val successful: Boolean get() = errors == 0 && withBarcode > 0
 }

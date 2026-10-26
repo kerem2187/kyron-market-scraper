@@ -3,6 +3,16 @@ package com.kyron.scraper.scraper.chains
 import com.kyron.scraper.browser.BrowserRunner
 import com.kyron.scraper.scraper.AbstractBrowserCatalogScraper
 import org.jsoup.nodes.Document
+import org.jsoup.Jsoup
+import com.kyron.scraper.model.RawProduct
+import com.kyron.scraper.macrocenter.LabelBarcodeDecoder
+import com.kyron.scraper.util.ProductExtraction
+import com.microsoft.playwright.Page
+import com.microsoft.playwright.Route
+import com.microsoft.playwright.options.WaitUntilState
+import com.microsoft.playwright.options.RequestOptions
+import kotlinx.serialization.json.JsonObject
+import java.util.regex.Pattern
 
 /**
  * Migros Sanal Market (JS-rendered SPA -> browser).
@@ -29,6 +39,44 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
         "$base/bebek-c-11",
         // TODO: complete category list from the site's category menu.
     )
+
+    override fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->
+        var captured: JsonObject? = null
+        val endpoint = Pattern.compile("https://www\\.migros\\.com\\.tr/rest/products/[0-9]+(?:\\?.*)?")
+        page.route(endpoint) { route ->
+            val response = route.fetch(Route.FetchOptions().setTimeout(15_000.0))
+            try {
+                if (response.ok()) {
+                    MacrocenterProductParser.detail(response.text(), url)?.let { captured = it }
+                }
+                route.fulfill(Route.FulfillOptions().setResponse(response))
+            } finally { response.dispose() }
+        }
+        page.waitForResponse({ endpoint.matcher(it.url()).matches() },
+            Page.WaitForResponseOptions().setTimeout(20_000.0)) {
+            page.navigate(url, Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                .setTimeout(20_000.0))
+        }
+        val data = captured ?: error("Migros: no matching product API detail for $url")
+        var raw = MacrocenterProductParser.product(data, url) ?: error("Migros: missing product name")
+        val fallback = ProductExtraction.fromJsonLd(Jsoup.parse(page.content(), url), url)
+        raw = raw.copy(barcode = raw.barcode ?: fallback?.barcode,
+            sourceImageUrl = raw.sourceImageUrl ?: fallback?.sourceImageUrl)
+        if (raw.barcode == null) {
+            val images = (MacrocenterProductParser.labelImages(data) + MacrocenterProductParser.images(data))
+                .distinct().take(3)
+            for (image in images) {
+                val code = runCatching {
+                    val response = page.request().get(image, RequestOptions.create().setTimeout(8_000.0))
+                    try { if (response.ok()) LabelBarcodeDecoder.decode(response.body()) else null }
+                    finally { response.dispose() }
+                }.getOrNull() ?: continue
+                raw = raw.copy(barcode = code)
+                break
+            }
+        }
+        raw
+    }
 
     override fun productLinks(listing: Document): List<String> =
         listing.select("a[href*='-p-']")

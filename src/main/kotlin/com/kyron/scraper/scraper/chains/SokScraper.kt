@@ -12,16 +12,7 @@ class SokScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher) {
 
     private val base = "https://www.sokmarket.com.tr"
 
-    override fun seedUrls(): List<String> = listOf(
-        "$base/meyve-sebze-c-1",
-        "$base/sut-kahvaltilik-c-2",
-        "$base/temel-gida-c-3",
-        "$base/atistirmalik-c-4",
-        "$base/icecek-c-5",
-        "$base/temizlik-c-6",
-        "$base/kisisel-bakim-c-7",
-        // TODO: complete category list.
-    )
+    override fun seedUrls(): List<String> = listOf(base)
 
     override fun productLinks(listing: Document): List<String> =
         listing.select("a[href*='-p-']")

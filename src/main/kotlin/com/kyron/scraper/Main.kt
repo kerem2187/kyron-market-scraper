@@ -37,9 +37,9 @@ fun main(args: Array<String>) = runBlocking {
             val reports = managed.map { orchestrator.run(it) }
             reports.forEach { log.info { "SUMMARY ${it.chain}: written=${it.written} unchanged=${it.unchanged} errors=${it.errors} budget=${it.stoppedByBudget}" } }
             val written = reports.sumOf { it.written }
-            val fatalSources = reports.count { it.errors > 0 && it.discovered == 0 }
+            val failed = reports.any { !it.successful }
             log.info { "TOTAL written=$written firestoreWrites=${repo.writesUsed}" }
-            if (fatalSources > 0 || reports.all { it.withBarcode == 0 }) exitProcess(1)
+            if (failed) exitProcess(1)
             if (Config.sheetsSyncEnabled) {
                 try {
                     val sheetReport = SheetsCatalogSync(fs).sync()

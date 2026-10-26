@@ -7,6 +7,7 @@ import com.kyron.scraper.pipeline.MergePolicy
 import com.kyron.scraper.store.FirestoreRepository
 import com.kyron.scraper.store.UpsertOutcome
 import com.kyron.scraper.util.Ean
+import com.kyron.scraper.util.ProductQuality
 import com.kyron.scraper.util.TextNormalizer
 import mu.KotlinLogging
 
@@ -29,16 +30,17 @@ class ScrapeOrchestrator(
                 if (System.currentTimeMillis() >= deadlineMs) throw BudgetReached("run-time budget reached")
                 if (!repo.hasWriteCapacity()) throw BudgetReached("write budget reached")
                 discovered++
-                val barcode = Ean.normalize(raw.barcode)
-                if (barcode == null || raw.name.isBlank()) { skipped++; return@scrape }
+                val complete = ProductQuality.normalized(raw)
+                if (complete == null) { skipped++; return@scrape }
+                val barcode = complete.barcode!!
                 withBarcode++
                 if (!seenThisRun.add(barcode)) { skipped++; return@scrape }
                 try {
                     val product = Product(
                         barcode = barcode,
-                        name = TextNormalizer.cleanName(raw.name),
+                        name = complete.name,
                         brand = raw.brand?.trim()?.takeIf { it.isNotEmpty() },
-                        imageUrl = raw.sourceImageUrl?.trim()?.takeIf { it.startsWith("https://") },
+                        imageUrl = complete.sourceImageUrl,
                         category = raw.category?.trim()?.takeIf { it.isNotEmpty() },
                         unit = raw.unit?.trim()?.takeIf { it.isNotEmpty() },
                         source = scraper.slug,

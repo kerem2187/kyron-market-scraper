@@ -30,9 +30,9 @@ class OpenFoodFactsImporter(
             val url = "https://world.openfoodfacts.org/api/v2/search" +
                 "?countries_tags_en=$country&fields=code,product_name,product_name_tr,brands,image_url,categories" +
                 "&page=$page&page_size=$pageSize"
-            val body = fetchWithRetry(url) ?: break
+            val body = fetchWithRetry(url) ?: error("[off] API fetch failed; inspect HTTP status/access before retrying")
             val products = runCatching { json.parseToJsonElement(body).jsonObject["products"]?.jsonArray }
-                .onFailure { log.warn { "[off] page $page parse failed: ${it.message}" } }.getOrNull() ?: break
+                .onFailure { log.warn { "[off] page $page parse failed: ${it.message}" } }.getOrNull() ?: error("[off] Invalid API response on page $page")
             if (products.isEmpty()) break
             for (element in products) {
                 val o = element.jsonObject
@@ -60,7 +60,11 @@ class OpenFoodFactsImporter(
                 val code = conn.responseCode
                 if (code in 200..299) return conn.inputStream.bufferedReader().use { it.readText() }
                 runCatching { conn.errorStream?.close() }
-                if (code != 429 && code !in 500..599) return null
+                if (code != 429 && code !in 500..599) {
+                    log.error { "[off] HTTP $code: $url" }
+                    conn.disconnect()
+                    return null
+                }
             } catch (e: Exception) { log.warn { "[off] fetch error: ${e.message}" } }
             delay(2_000L * (index + 1))
         }

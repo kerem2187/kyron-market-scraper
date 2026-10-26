@@ -51,3 +51,11 @@ tasks.register<JavaExec>("macrocenterSmoke") {
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.kyron.scraper.macrocenter.MacrocenterSmokeMainKt")
 }
+
+// Read-only complete-record test, selected with --args=<source>.
+tasks.register<JavaExec>("sourceSmoke") {
+    group = "verification"
+    description = "Validates three products with name, GTIN and downloadable image; no database writes."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.kyron.scraper.SourceSmokeMainKt")
+}

@@ -3,6 +3,7 @@ package com.kyron.scraper.scraper
 import com.kyron.scraper.http.PoliteFetcher
 import com.kyron.scraper.model.RawProduct
 import com.kyron.scraper.util.ProductExtraction
+import kotlinx.coroutines.CancellationException
 import mu.KotlinLogging
 import org.jsoup.nodes.Document
 
@@ -30,25 +31,31 @@ abstract class AbstractCatalogScraper(
 
     override suspend fun scrape(emit: suspend (RawProduct) -> Unit) {
         val visited = HashSet<String>()
+        var extracted = 0
+        val deadline = System.currentTimeMillis() + com.kyron.scraper.config.Config.maxRunMinutes * 60_000
+        fun checkTime() { check(System.currentTimeMillis() < deadline) { "Source run-time budget reached" } }
         for (seed in seedUrls()) {
+            checkTime()
             var pageUrl: String? = seed
             var pages = 0
             while (pageUrl != null && pages < maxPagesPerSeed) {
                 val current = pageUrl
                 val listing = runCatching { fetcher.getHtml(current) }
-                    .onFailure { log.warn { "[$slug] listing failed $current: ${it.message}" } }
+                    .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] listing failed $current: ${it.message}" } }
                     .getOrNull() ?: break
                 for (link in productLinks(listing)) {
-                    if (!visited.add(link)) continue
+                    checkTime()
+                if (!visited.add(link)) continue
                     val product = runCatching { scrapeProduct(link) }
-                        .onFailure { log.warn { "[$slug] product failed $link: ${it.message}" } }
+                        .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] product failed $link: ${it.message}" } }
                         .getOrNull()
-                    if (product != null) emit(product)
+                    if (product != null) { extracted++; emit(product) }
                 }
                 pageUrl = nextPage(listing, current)
                 pages++
             }
         }
+        check(extracted > 0) { "[$slug] No products extracted; check HTTP access, catalog URLs and selectors" }
     }
 
     protected open suspend fun scrapeProduct(url: String): RawProduct? {
