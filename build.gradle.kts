@@ -33,7 +33,9 @@ tasks.register<JavaExec>("installBrowsers") {
     description = "Downloads Chromium used by Playwright."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("com.microsoft.playwright.CLI")
-    args("install", "--with-deps", "chromium")
+    // GitHub browser workflows pin ubuntu-22.04, which already supplies Chromium OS libraries.
+    // Do not run a full apt upgrade in every matrix job (it previously exhausted the job timeout).
+    args("install", "chromium")
 }
 
 // Standalone Firestore -> Google Sheets/AppSheet catalog synchronization.

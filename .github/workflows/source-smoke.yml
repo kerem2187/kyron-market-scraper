@@ -10,8 +10,8 @@ permissions:
 
 jobs:
   complete-products:
-    runs-on: ubuntu-latest
-    timeout-minutes: 12
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +36,7 @@ jobs:
       - name: Unit tests and build
         run: gradle --no-daemon test build
       - name: Install Chromium
-        if: contains('macrocenter,migros,carrefoursa', matrix.source)
+        if: contains('macrocenter,migros,carrefoursa,a101', matrix.source)
         run: gradle --no-daemon installBrowsers
       - name: Validate three complete products (read-only)
         shell: bash

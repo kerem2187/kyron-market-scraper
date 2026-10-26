@@ -13,14 +13,11 @@ class FileMarketScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher
     override val displayName = "File Market"
     override val barcodeAvailable = false
 
-    private val base = "https://www.filemarket.com.tr"
+    private val base = "https://www.file.com.tr"
 
-    override fun seedUrls(): List<String> = listOf(
-        "$base/meyve-sebze",
-        "$base/sut-ve-kahvaltilik",
-        "$base/temel-gida",
-        // TODO: verify category URLs on the live site.
-    )
+    override fun seedUrls(): List<String> = error(
+        "File: official file.com.tr directs catalog shopping to the mobile app. " +
+            "An authorized barcode/product feed is required; fabricated web category URLs are not used.")
 
     override fun productLinks(listing: Document): List<String> =
         listing.select("a[href*='-p-'], a.product-link")

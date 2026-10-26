@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   scrape:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -78,7 +78,7 @@ jobs:
       - name: Test
         run: gradle --no-daemon test
       - name: Install Chromium
-        if: contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'carrefoursa') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
+        if: contains(env.ENABLED_CHAINS, 'a101') || contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'carrefoursa') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
         run: gradle --no-daemon installBrowsers
       - name: Run scraper (isolated source budgets)
         id: scrape
