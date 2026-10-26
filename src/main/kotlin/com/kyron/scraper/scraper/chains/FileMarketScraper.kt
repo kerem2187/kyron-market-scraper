@@ -1,6 +1,7 @@
 package com.kyron.scraper.scraper.chains
 
 import com.kyron.scraper.http.PoliteFetcher
+import com.kyron.scraper.scraper.SourceStatus
 import com.kyron.scraper.scraper.AbstractCatalogScraper
 import org.jsoup.nodes.Document
 
@@ -12,6 +13,7 @@ class FileMarketScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher
     override val slug = "file"
     override val displayName = "File Market"
     override val barcodeAvailable = false
+    override val status = SourceStatus.DISABLED // Explicitly excluded by the user.
 
     private val base = "https://www.file.com.tr"
 

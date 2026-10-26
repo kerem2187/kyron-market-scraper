@@ -14,12 +14,14 @@ Başarı ölçütü aynı ürüne ait ad, checksum-geçerli barkod ve gerçekten
 - ŞOK: Next Flight içindeki yalnızca eşleşen `productData.product`; orijinal ürün görselleri ve ambalajdan barkod okuma. Her ürünün görselinde barkod bulunması garanti değildir.
 - CarrefourSA: güncel kategori adresleri, `-p-` bağlantıları ve yalnızca ilgili SKU’ya ait ambalaj görselleri. Açık GTIN alanı veya okunabilir barkod bulunmayan ürünler tam kayıt sayılmaz.
 
-## Harici veri erişimi gerektiren kaynaklar
+## Kullanıcı isteğiyle kapsam dışında tutulan kaynaklar
 
 - FİLE: gerçek kurumsal alan adı `file.com.tr`. Online alışveriş sayfası mobil uygulamaya yönlendiriyor. Mevcut koşullarda yetkili, barkod içeren ürün akışı/API erişimi bulunamadı; sahte `filemarket.com.tr` kategori adresleri kaldırıldı.
 - Hakmar Alışveriş Merkezleri: hedef `hakmar.com.tr`; Hakmar Express değildir. Erişilebilir indirim sayfası bülten görselleri sunuyor; yapılandırılmış GTIN kataloğu bulunamadı. Şirketten sağlanan veya kullanımına izin verilen ürün akışı gerekli.
 
-Bu iki kaynak boş/sahte ürün döndürerek başarılı gösterilmez. Tüm sekiz kaynak bağımsız salt okunur canlı testte tutulur; başarısızlıklar gizlenmez. Tüm marketlerin üretime hazır olduğu henüz iddia edilmez.
+Hakmar ve FİLE kullanıcı isteğiyle zamanlanmış çalışmadan, manuel varsayılan kaynak listesinden ve canlı test matrisinden çıkarıldı. İki bağdaştırıcı da DISABLED durumunda; açıkça seçilmeleri reddedilir. Mevcut veritabanı kayıtları silinmez.
+
+Aktif kapsam: Macrocenter, Migros, CarrefourSA, ŞOK, A101 ve Open Food Facts. Bu altı kaynak bağımsız salt okunur canlı testte tutulur; başarısızlıklar gizlenmez. Kalan kaynakların üretime hazır olduğu canlı testleri tamamlanmadan iddia edilmez.
 
 ## Test ortamı
 

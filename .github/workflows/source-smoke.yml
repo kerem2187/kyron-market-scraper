@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: [macrocenter, migros, carrefoursa, sok, a101, file, hakmar, off]
+        source: [macrocenter, migros, carrefoursa, sok, a101, off]
     env:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
       REQUEST_DELAY_MS: "3000"
