@@ -1,6 +1,7 @@
 package com.kyron.scraper.scraper.chains
 
 import com.kyron.scraper.browser.BrowserRunner
+import com.kyron.scraper.scraper.SourceStatus
 import com.kyron.scraper.scraper.AbstractBrowserCatalogScraper
 import com.kyron.scraper.model.RawProduct
 import com.microsoft.playwright.Page
@@ -12,6 +13,8 @@ class A101Scraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(browse
     override val slug = "a101"
     override val displayName = "A101"
     override val barcodeAvailable = true
+    // Excluded by user: live GitHub Actions access returns HTTP 403; no authorized API.
+    override val status = SourceStatus.DISABLED
     override val waitSelector = "a[href*='_p-']"
 
     override fun seedUrls(): List<String> = listOf(

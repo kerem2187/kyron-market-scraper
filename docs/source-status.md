@@ -20,12 +20,16 @@ Başarı ölçütü aynı ürüne ait ad, checksum-geçerli barkod ve gerçekten
 
 Hakmar ve FİLE kullanıcı isteğiyle zamanlanmış çalışmadan, manuel varsayılan kaynak listesinden ve canlı test matrisinden çıkarıldı. İki bağdaştırıcı da DISABLED durumunda; açıkça seçilmeleri reddedilir. Mevcut veritabanı kayıtları silinmez.
 
-Aktif kapsam: Macrocenter, Migros, CarrefourSA, ŞOK, A101 ve Open Food Facts. Bu altı kaynak bağımsız salt okunur canlı testte tutulur; başarısızlıklar gizlenmez. Kalan kaynakların üretime hazır olduğu canlı testleri tamamlanmadan iddia edilmez.
+Aktif kapsam: Macrocenter, Migros, ŞOK ve Open Food Facts. Yalnızca bu dört kaynak zamanlanmış çalışmada, manuel varsayılanlarda ve salt okunur canlı test matrisinde yer alır. A101 ve CarrefourSA da kullanıcı isteğiyle DISABLED durumundadır; manuel seçimleri reddedilir. Eski kayıtlar silinmez.
 
 ## Test ortamı
 
-Tarayıcı iş akışları Ubuntu 22.04 üzerinde çalışır. Playwright 1.47 yerine 1.64 kullanılacak biçimde güncellendi; bu değişikliğin canlı test sonucu ayrıca doğrulanmalıdır. Her işte tüm OS bağımlılıklarını apt ile yeniden kurmak yerine yalnızca Chromium indirilir. Önceki Migros turu ürün testine ulaşmadan OS kurulumu sırasında iş zaman aşımına uğramıştı.
+Tarayıcı iş akışları Ubuntu 22.04 üzerinde çalışır. Playwright 1.47 yerine 1.64 kullanılacak biçimde güncellendi; `40395328348` canlı turunda Macrocenter, Migros, ŞOK ve Open Food Facts yeniden geçti. Her işte tüm OS bağımlılıklarını apt ile yeniden kurmak yerine yalnızca Chromium indirilir. Önceki Migros turu ürün testine ulaşmadan OS kurulumu sırasında iş zaman aşımına uğramıştı.
 
 ## Açık sorunların tanılanması
 
 Son altı kaynaklı canlı turda A101 ve CarrefourSA ürün keşfinde başarısız oldu. Yeni tanılama HTTP durumunu, sınırlı sayfa başlığını ve bulunan ürün bağlantısı sayısını kaydeder; HTML, çerez veya oturum anahtarları kaydedilmez. HTTP erişim engeli başarılı veya boş katalog gibi gösterilmez. Güvenlik doğrulaması aşılmaya çalışılmaz.
+
+## Dört kaynakla devam kararı
+
+Kullanıcı yalnızca çalışan kaynaklarla devam edilmesini istedi; A101/CarrefourSA için izinli API bulunmuyor. Son canlı turda A101 üç kategoride HTTP 403 “Just a moment...”, CarrefourSA üç kategoride HTTP 403 “Attention Required! | Cloudflare” döndürdü. İkisi aktif kapsamdan çıkarıldı; erişim engeli aşılmaya çalışılmaz. Dört kaynaklı CI ve canlı testler yeşil olmadan ana dala birleştirilmez.

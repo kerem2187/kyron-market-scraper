@@ -9,18 +9,18 @@ class ExcludedSourcesTest {
     @Test fun excludedRetailersCannotBeSelectedExplicitly() {
         BrowserRunner().use { browser ->
             val registry = ScraperRegistry(PoliteFetcher(), browser)
-            for (source in listOf("file", "hakmar")) {
+            for (source in listOf("file", "hakmar", "a101", "carrefoursa")) {
                 val e = assertFailsWith<IllegalArgumentException> { registry.resolve(listOf(source)) }
                 assertTrue(e.message!!.contains("Disabled source(s)"))
             }
         }
     }
-    @Test fun remainingSixSourcesAreStillSelectable() {
+    @Test fun remainingFourSourcesAreStillSelectable() {
         BrowserRunner().use { browser ->
-            val expected = setOf("macrocenter", "migros", "carrefoursa", "sok", "a101", "off")
+            val expected = setOf("macrocenter", "migros", "sok", "off")
             val selected = ScraperRegistry(PoliteFetcher(), browser).resolve(expected.toList())
             assertEquals(expected, selected.map { it.slug }.toSet())
-            assertTrue(selected.none { it.slug == "file" || it.slug == "hakmar" })
+            assertTrue(selected.none { it.slug in setOf("file", "hakmar", "a101", "carrefoursa") })
         }
     }
 }

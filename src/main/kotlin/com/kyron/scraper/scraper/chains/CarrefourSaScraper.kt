@@ -1,6 +1,7 @@
 package com.kyron.scraper.scraper.chains
 
 import com.kyron.scraper.browser.BrowserRunner
+import com.kyron.scraper.scraper.SourceStatus
 import com.kyron.scraper.scraper.AbstractBrowserCatalogScraper
 import org.jsoup.nodes.Document
 import org.jsoup.Jsoup
@@ -15,6 +16,8 @@ class CarrefourSaScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper
     override val slug = "carrefoursa"
     override val displayName = "CarrefourSA"
     override val barcodeAvailable = true
+    // Excluded by user: live GitHub Actions access returns HTTP 403; no authorized API.
+    override val status = SourceStatus.DISABLED
     override val waitSelector = "a[href*='-p-']"
 
     private val base = "https://www.carrefoursa.com"
