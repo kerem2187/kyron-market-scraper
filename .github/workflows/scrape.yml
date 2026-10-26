@@ -2,7 +2,7 @@ name: Kyron Market Scrape
 
 on:
   schedule:
-    # 00:00 UTC = 03:00 Europe/Istanbul. GitHub may delay scheduled starts.
+    # Daily 03:00 Europe/Istanbul. GitHub schedules are best-effort, not exact-time SLAs.
     - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
@@ -11,19 +11,19 @@ on:
         default: "macrocenter,migros,sok,off"
         required: true
       seed_urls:
-        description: "Optional Macrocenter category/list URLs, comma-separated; blank discovers categories"
-        default: "https://www.macrocenter.com.tr/macropicks-l-8d03038"
+        description: "Optional Macrocenter category/list URLs; blank discovers categories"
+        default: ""
         required: false
       max_minutes:
-        description: "Run-time budget PER SOURCE in minutes (1-10)"
-        default: "10"
-        required: true
-      max_products:
-        description: "Macrocenter product attempt limit (includes failures)"
+        description: "Run-time budget PER SOURCE in minutes (1-30)"
         default: "30"
         required: true
+      max_products:
+        description: "Macrocenter product attempt limit (includes failures; 1-1000)"
+        default: "1000"
+        required: true
       max_writes:
-        description: "Firestore write budget PER SOURCE"
+        description: "Firestore write budget PER SOURCE (1-5000)"
         default: "500"
         required: true
 
@@ -34,60 +34,129 @@ concurrency:
   group: kyron-market-scrape
   cancel-in-progress: false
 
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  FIRESTORE_COLLECTION: products
+  FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
+  FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
+  SHEETS_SYNC_ENABLED: "false"
+  SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+  SHEETS_CATALOG_TAB: "KATALOG"
+  REQUEST_DELAY_MS: "3000"
+  MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '500' }}
+  MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '30' }}
+  MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '30' }}
+  MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '1000' }}
+  MACROCENTER_MAX_LISTING_PAGES: "10"
+  MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls || '' }}
+  CATALOG_MAX_LISTING_PAGES: "10"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+  GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+
 jobs:
-  scrape:
+  prepare:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 5
+    outputs:
+      sources: ${{ steps.scope.outputs.sources }}
+    steps:
+      - name: Validate active source scope and budgets
+        id: scope
+        env:
+          SOURCE_SELECTION: ${{ github.event.inputs.chains || 'macrocenter,migros,sok,off' }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          requested = [s.strip().lower() for s in os.environ['SOURCE_SELECTION'].split(',') if s.strip()]
+          # The registry's VERIFIED-only 'all' currently means OFF; explicit defaults include four sources.
+          if requested == ['all']: requested = ['off']
+          sources = list(dict.fromkeys(requested))
+          assert sources and set(sources) <= {'macrocenter', 'migros', 'sok', 'off'}, 'Unknown or disabled source'
+          for key, upper in [('MAX_RUN_MINUTES', 30), ('MAX_WRITES_PER_RUN', 5000), ('MACROCENTER_MAX_PRODUCTS', 1000)]:
+              value = os.environ[key]
+              assert value.isascii() and value.isdigit() and 1 <= int(value) <= upper, f'Invalid {key}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f: f.write('sources=' + json.dumps(sources) + '\n')
+          PY
+
+  sources:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        source: ${{ fromJSON(needs.prepare.outputs.sources) }}
     env:
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      FIRESTORE_COLLECTION: products
-      FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
-      FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
-      SHEETS_SYNC_ENABLED: "false"
-      SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
-      SHEETS_CATALOG_TAB: "KATALOG"
-      REQUEST_DELAY_MS: "3000"
-      MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '500' }}
-      MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
-      MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '10' }}
-      MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '30' }}
-      MACROCENTER_MAX_LISTING_PAGES: "3"
-      MACROCENTER_SEED_URLS: ${{ github.event_name == 'schedule' && 'https://www.macrocenter.com.tr/macropicks-l-8d03038' || github.event.inputs.seed_urls }}
-      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
-      ENABLED_CHAINS: ${{ github.event.inputs.chains || 'macrocenter,migros,sok,off' }}
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+      ENABLED_CHAINS: ${{ matrix.source }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: ./.github/actions/catalog-setup
         with:
-          distribution: temurin
-          java-version: "21"
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: "8.10"
-      - name: Validate required secrets
-        id: credentials
-        shell: bash
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          test -n "$GCP_PROJECT_ID" || { echo "GCP_PROJECT_ID is missing"; exit 1; }
-          test -n "$GCP_SA_KEY" || { echo "GCP_SA_KEY is missing"; exit 1; }
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          chmod 600 "$GOOGLE_APPLICATION_CREDENTIALS"
+          project-id: ${{ secrets.GCP_PROJECT_ID }}
+          service-account-key: ${{ secrets.GCP_SA_KEY }}
       - name: Test
         run: gradle --no-daemon test
       - name: Install Chromium
-        if: contains(env.ENABLED_CHAINS, 'migros') || contains(env.ENABLED_CHAINS, 'macrocenter') || contains(env.ENABLED_CHAINS, 'all')
+        if: contains('migros,macrocenter', matrix.source)
         run: gradle --no-daemon installBrowsers
-      - name: Run scraper (isolated source budgets)
-        id: scrape
-        run: bash .github/scripts/run-sources.sh
-      - name: Sync Firestore catalog to Sheets after scraping
-        if: ${{ always() && !cancelled() && steps.credentials.outcome == 'success' && steps.scrape.outcome != 'skipped' }}
-        env:
-          SHEETS_SYNC_ENABLED: "true"
-        run: gradle --no-daemon syncSheetsCatalog
+      - name: Scrape one isolated source
+        shell: bash
+        run: |
+          set -o pipefail
+          bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
+      - name: Preserve source result and coverage
+        if: always()
+        shell: bash
+        run: |
+          echo '### Source: ${{ matrix.source }}' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Process success is not a guarantee of a full market catalog. Inspect budgets, skipped records and coverage.' >> "$GITHUB_STEP_SUMMARY"
+          grep -E 'SUMMARY |SOURCE_RESULT|CATALOG_COVERAGE|FINAL attempts|OFF_COVERAGE|IMAGE_REJECTED' source-run.log | tail -30 >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Preserve diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-run-${{ matrix.source }}
+          path: source-run.log
+          retention-days: 7
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+
+  catalog-sync:
+    needs: [prepare, sources]
+    if: ${{ always() && !cancelled() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    # Shared lock with the independent 05:30 fallback/manual sync.
+    concurrency:
+      group: kyron-sheets-catalog-writer
+      cancel-in-progress: false
+    env:
+      SHEETS_SYNC_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/catalog-setup
+        with:
+          project-id: ${{ secrets.GCP_PROJECT_ID }}
+          service-account-key: ${{ secrets.GCP_SA_KEY }}
+      - name: Sync and read-back verify AppSheet KATALOG
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon syncSheetsCatalog 2>&1 | tee catalog-sync.log
+      - name: Publish catalog result
+        if: always()
+        run: |
+          echo '### AppSheet backing-sheet KATALOG sync' >> "$GITHUB_STEP_SUMMARY"
+          grep -E 'SHEETS_SYNC|SHEETS_TOTAL|FAILED' catalog-sync.log >> "$GITHUB_STEP_SUMMARY" || true
+          echo 'External sheet changes appear in the AppSheet client on its next sync; client settings are separate.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve sync diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-sync-result
+          path: catalog-sync.log
+          retention-days: 7
       - name: Cleanup credentials
         if: always()
         run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

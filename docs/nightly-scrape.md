@@ -1,28 +1,24 @@
-# Nightly market scrape
+# Daily market ingestion and catalog delivery
 
-`Kyron Market Scrape` runs daily at 00:00 UTC (03:00 Europe/Istanbul).
-GitHub Actions schedules are best-effort; runner load can delay actual start.
-Manual workflow dispatch remains available and uses the same source runner.
+- Daily start: 00:00 UTC / 03:00 Europe/Istanbul. GitHub schedules are best-effort, not an exact-time SLA.
+- Active sources: `macrocenter,migros,sok,off`. OFF remains enabled. A101, CarrefourSA, FİLE and Hakmar remain disabled.
+- Each source runs independently in a non-fail-fast matrix. Defaults are **30 minutes and 500 Firestore writes per source** (at most 2,000 counted writes across four sources). Canonical + per-source observation can consume two writes per product; the canary also counts.
+- Application/OS timeouts remain bounded. A failed source leaves the overall workflow red; it cannot prevent the other sources or the final catalog sync from running unless the workflow is cancelled/setup fails.
+- Manual runs can use smaller budgets. Macrocenter defaults to public category discovery instead of only Macropicks, with up to 1,000 product attempts and 10 listing passes inside the time/write caps. Migros and ŞOK also discover public category links; Migros attempts lazy-loaded listing links. Unsupported pagination, missing public GTINs and budgets still constrain coverage.
+- A valid record requires a same-product name, checksum-valid barcode and HTTPS image whose actual bytes decode. No SKU/image filename is substituted for a GTIN. Unreadable/missing-image or missing-GTIN products are skipped, not invented.
+- OFF search attempts are separated by at least seven seconds. HTTP 429 uses at least 60 seconds (and honors longer Retry-After); transient server/transport errors have bounded retries. HTTP errors remain failures, including an error on page 2 after a good page 1.
+- CI includes a dedicated two-page OFF test. The ordinary three-product source smoke alone cannot validate pagination.
 
-Scheduled sources: `macrocenter,migros,carrefoursa,sok,a101,file,hakmar,off`.
-`all` is not used because it selects only VERIFIED sources and excludes Macrocenter.
-Market Fiyati stays disabled. FILE/Hakmar are incomplete experimental sources,
-not verified integrations; empty results fail rather than imply successful coverage.
-Macrocenter starts from Macropicks; list membership does not prove imported origin.
+## Catalog and AppSheet
 
-Each source runs in its own process with 10 minutes application budget and 500
-Firestore writes by default. These are PER SOURCE, not a shared global budget.
-An external timeout allows 60 seconds startup grace plus a 30 second kill grace.
-One failed source does not prevent subsequent sources from running. Known partial
-source errors are visible in logs; a zero process result does not prove full coverage.
-Requests use a 3 second base delay. This does not guarantee avoidance of rate limits.
+After all four source attempts, the `catalog-sync` job reads canonical Firestore products and updates the existing `KATALOG` tab. It runs even if a source fails. The independent 05:30 Istanbul Sheets-only fallback remains enabled. Both writers share the same concurrency lock.
 
-Per-source Sheets sync is disabled. After all source attempts, the workflow runs
-`syncSheetsCatalog` once, also when the source runner failed. Failed sources leave
-the overall workflow red even when Sheets sync succeeds. Authentication/build
-failures or cancellation can prevent execution; inspect each step separately.
-The existing 05:30 Istanbul Sheets-only schedule remains as a fallback.
+The sync only appends missing complete barcodes and fills blank B/C/E cells. It does not rewrite the table, compact/delete duplicate rows, change manual non-empty values, touch URUN_TAKIP, or delete old products. Incomplete legacy Firestore records are reported and skipped. Every requested change is read back before sync success is reported. Ambiguous append failures are not blindly retried; the next sync re-reads barcode keys.
 
-Sheets sync reads the whole canonical Firestore products catalog, appends missing
-barcodes and fills empty fields; manual nonempty sheet values remain unchanged.
-This updates AppSheet's backing sheet, not a forced refresh of every mobile client.
+This delivers data into the AppSheet **backing sheet**. It does not force a refresh on all mobile clients. The target AppSheet app URL/access and its Sync on start/Automatic updates/data-source settings must be checked separately. External Sheets changes appear at the client's next sync.
+
+## What “complete” does not mean
+
+A successful bounded process is not proof that every product in every store has been enumerated. Some sites do not publish barcodes or complete image sets. Budget stops, discovered category/listing counts, rejected images, skipped records and source errors are logged; no full-catalog completeness guarantee is made. No price/stock or branch-specific availability guarantee is made either.
+
+Source and catalog logs are retained as GitHub artifacts for seven days and key results are added to the run summary. A green code/live smoke check is necessary but not sufficient: the production Firestore/Sheets run must be checked too.

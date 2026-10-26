@@ -53,7 +53,7 @@ class MacrocenterProductParserTest {
             <a href="/sut-p-abcd?campaign=1">Süt</a><a href="/sut-p-abcd">Süt</a>
             <a href="https://evil.test/sut-p-abcd">External</a>
         """, MacrocenterScraper.BASE)
-        assertEquals(listOf("${MacrocenterScraper.BASE}/sut-c-116eb"), MacrocenterScraper.categoryLinks(doc))
+        assertEquals(listOf("${MacrocenterScraper.BASE}/sut-c-116eb", "${MacrocenterScraper.BASE}/alt-c-123"), MacrocenterScraper.categoryLinks(doc))
         assertEquals(listOf("${MacrocenterScraper.BASE}/sut-p-abcd"), MacrocenterScraper.productLinks(doc))
     }
     @Test fun acceptsOnlySameOriginCategoryAndCuratedListSeeds() {

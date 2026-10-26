@@ -16,11 +16,20 @@ class SokScraper(fetcher: PoliteFetcher) : AbstractCatalogScraper(fetcher) {
 
     override fun seedUrls(): List<String> = listOf("$base/kahvaltilik-c-890", base)
 
+    override suspend fun catalogSeeds(): List<String> {
+        val discovered = try {
+            com.kyron.scraper.util.CatalogUrls.links(fetcher.getHtml(base), "www.sokmarket.com.tr", "-c-")
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            println("CATALOG_COVERAGE source=$slug categoryDiscoveryFailed=true fallback=true fullCatalogGuaranteed=false")
+            emptyList()
+        }
+        println("CATALOG_COVERAGE source=$slug categories=${discovered.size} fullCatalogGuaranteed=false")
+        return (seedUrls() + discovered).distinct()
+    }
+
     override fun productLinks(listing: Document): List<String> =
-        listing.select("a[href*='-p-']")
-            .map { it.absUrl("href") }
-            .filter { it.isNotBlank() }
-            .distinct()
+        com.kyron.scraper.util.CatalogUrls.links(listing, "www.sokmarket.com.tr", "-p-")
 
     override suspend fun scrapeProduct(url: String): RawProduct? {
         val doc = fetcher.getHtml(url)

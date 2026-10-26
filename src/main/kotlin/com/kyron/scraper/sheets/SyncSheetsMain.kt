@@ -18,7 +18,7 @@ fun main() {
     firestore.use { fs ->
         try {
             val report = SheetsCatalogSync(fs).sync()
-            log.info { "SHEETS_TOTAL inserted=${report.inserted} enriched=${report.enriched} unchanged=${report.unchanged} finalRows=${report.finalRows}" }
+            log.info { "SHEETS_TOTAL inserted=${report.inserted} enriched=${report.enriched} unchanged=${report.unchanged} finalRows=${report.finalRows} skippedIncomplete=${report.incompleteSkipped} duplicatesObserved=${report.duplicateRowsObserved} verified=true" }
         } catch (e: Exception) {
             log.error(e) { "Standalone Google Sheets catalog sync FAILED" }
             exitProcess(4)

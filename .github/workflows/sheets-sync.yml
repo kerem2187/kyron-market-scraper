@@ -15,14 +15,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: kyron-sheets-catalog-sync
-  cancel-in-progress: false
-
 jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: kyron-sheets-catalog-writer
+      cancel-in-progress: false
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       FIRESTORE_COLLECTION: products

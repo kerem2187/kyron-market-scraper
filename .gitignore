@@ -7,3 +7,6 @@ build/
 # Never commit service account keys
 gcp-key.json
 *-sa-key.json
+
+# Kotlin incremental compiler cache
+.kotlin/

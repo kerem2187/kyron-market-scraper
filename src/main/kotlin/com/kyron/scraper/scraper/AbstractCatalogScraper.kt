@@ -21,6 +21,7 @@ abstract class AbstractCatalogScraper(
     protected abstract fun seedUrls(): List<String>
 
     /** Extract product detail URLs from a listing page. */
+    protected open suspend fun catalogSeeds(): List<String> = seedUrls()
     protected abstract fun productLinks(listing: Document): List<String>
 
     /** Extract the next listing page URL, or null when done. */
@@ -34,7 +35,7 @@ abstract class AbstractCatalogScraper(
         var extracted = 0
         val deadline = System.currentTimeMillis() + com.kyron.scraper.config.Config.maxRunMinutes * 60_000
         fun checkTime() { check(System.currentTimeMillis() < deadline) { "Source run-time budget reached" } }
-        for (seed in seedUrls()) {
+        for (seed in catalogSeeds()) {
             checkTime()
             var pageUrl: String? = seed
             var pages = 0
@@ -54,6 +55,7 @@ abstract class AbstractCatalogScraper(
                 }
                 pageUrl = nextPage(listing, current)
                 pages++
+                println("CATALOG_COVERAGE source=$slug pages=$pages productsVisited=${visited.size} morePages=${pageUrl != null} fullCatalogGuaranteed=false")
             }
         }
         check(extracted > 0) { "[$slug] No products extracted; check HTTP access, catalog URLs and selectors" }

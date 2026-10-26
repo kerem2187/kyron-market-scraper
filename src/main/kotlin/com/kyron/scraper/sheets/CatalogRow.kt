@@ -33,4 +33,6 @@ data class CatalogSyncReport(
     val unchanged: Int,
     val duplicatesRemoved: Int,
     val finalRows: Int,
+    val incompleteSkipped: Int = 0,
+    val duplicateRowsObserved: Int = 0,
 )
