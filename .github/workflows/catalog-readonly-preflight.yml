@@ -1,0 +1,49 @@
+name: Catalog Read-only Release Preflight
+
+on:
+  push:
+    branches: ["preflight/catalog-readonly"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: kyron-catalog-readonly-preflight
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.10"
+      - name: Unit tests and compile diagnostic before credentials
+        run: gradle --no-daemon test installDist
+      - name: Verify existing service-account read access only
+        shell: bash
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/kyron-catalog-readonly-sa.json
+          SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+          SHEETS_CATALOG_TAB: "KATALOG"
+          SHEETS_CATEGORY_TAB: "KATEGORİLER"
+          SHEETS_SYNC_ENABLED: "false"
+        run: |
+          set -euo pipefail
+          test -n "$GCP_SA_KEY" || { echo "Existing GCP_SA_KEY secret is missing"; exit 1; }
+          trap 'rm -f "$GOOGLE_APPLICATION_CREDENTIALS"' EXIT
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          unset GCP_SA_KEY
+          java -cp 'build/install/kyron-market-scraper/lib/*' com.kyron.scraper.preflight.CatalogReadOnlyPreflight
+      - name: Ensure credential file removed
+        if: always()
+        shell: bash
+        run: rm -f '${{ runner.temp }}/kyron-catalog-readonly-sa.json'
