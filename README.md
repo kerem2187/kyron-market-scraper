@@ -1,150 +1,62 @@
-# Kyron Market Scraper (Free / Ücretsiz)
+# Kyron Market Scraper
 
-Zamanlanmış (scheduled) bir barkod → ürün kütüphanesi toplama servisi.
-Türkiye zincir marketlerinin online kataloglarından **ürün adı + marka + görsel + barkod (EAN-13)**
-toplar, normalize eder ve **Firestore**'a yazar. Kyron uygulaması bu kütüphaneyi okur.
+Ürün adı, doğrulanmış barkod ve kaynak görseli toplayan Kotlin/JVM katalog hattı.
+Firestore'daki kanonik ürünler ayrı bir iş akışıyla Google Sheets/AppSheet `KATALOG` tablosuna aktarılır. Katalog, mağazanın gerçek stok veya satış defteri değildir.
 
-> **Tamamen ücretsiz çalışır:** sunucu (Cloud Run) yok. Zamanlayıcı + çalıştırıcı olarak
-> **GitHub Actions** (ücretsiz cron), veritabanı olarak **Firestore Spark (ücretsiz) planı**,
-> görseller ise **yeniden barındırılmadan** kaynak URL olarak saklanır (depolama maliyeti = 0).
+## Kapsam ve dürüst durum
 
----
+- Günlük iş akışının açık kaynak seçimi: `macrocenter,migros,sok,off`.
+- Hakmar ve FİLE kapsam dışıdır. Kodda başka adaptör bulunması, günlük akışta etkin veya doğrulanmış olduğu anlamına gelmez.
+- `all`, registry'nin VERIFIED kapsamıdır; açık dört kaynak listesiyle eş anlamlı değildir. Kaynak seçimini iş akışında açık belirtin.
+- Dış kaynak erişimi ve görseller değişebilir. Bir smoke testi tüm ürünlerin günlük eksiksiz toplandığını kanıtlamaz. Kaynak bazında hata ve miktarları Actions'tan inceleyin.
+- Yeni ücretli servis veya abonelik gerektirmeyen yapı hedeflenir. GitHub, Firestore ve Google kotaları/koşulları geçerlidir; sınırsız kullanım veya sıfır fatura garantisi yoktur. AppSheet lisans uygunluğu ayrı konudur.
 
-## Neden bu ücretsiz?
+## Mimari ve zamanlama
 
-| Bileşen | Araç | Ücret |
-|--------|------|-------|
-| Zamanlayıcı + çalıştırıcı | **GitHub Actions** (cron) | Public repo: sınırsız. Private repo: 2000 dk/ay ücretsiz |
-| Veritabanı | **Firestore (Spark)** | Ücretsiz kota: ~1 GiB, 20K yazma/gün, 50K okuma/gün |
-| Görsel | Kaynak URL (rehost yok) | 0 |
-| Çalıştırma ortamı | GitHub-hosted runner | 0 |
+```text
+GitHub Actions: Kyron Market Scrape (03:00 Europe/Istanbul, best-effort)
+  → kaynak başına izole scraper ve bütçe
+  → kanonik Firestore ürünleri + gözlemler
 
-Uygulama artık sürekli açık bir sunucu değil; **tek sefer çalışıp çıkan bir CLI job**. GitHub Actions
-bunu her gün cron ile tetikler.
-
----
-
-## Mimari
-
-```
-GitHub Actions (cron: her gün 03:00 Europe/Istanbul)
-        │  gradle run --args="all"
-        ▼
-CLI job (Main.kt)  ── ScraperRegistry ── ScrapeOrchestrator
-        │                                    │  extract → EAN normalize → upsert
-        ▼                                    ▼
-  Scraper'lar                          Firestore (doc id = barkod)
-   • off          → Open Food Facts (ODbL, önerilen temel katman)
-   • migros       → Playwright (JS-render)
-   • carrefoursa  → Playwright (JS-render)
-   • macrocenter  → Playwright + ürün API yanıtı + etiket barkodu (ZXing)
-   • sok / a101 / file / hakmar → HTTP + Jsoup
+GitHub Actions: Sync AppSheet Product Catalog (05:30 Europe/Istanbul, best-effort)
+  → Firestore okuma
+  → KATALOG güvenli ekleme / eksik alan doldurma
+  → AppSheet'in normal senkronizasyonunda görünürlük
 ```
 
-Ekstraksiyonun kalbi **schema.org JSON-LD** okumasıdır (`gtin13`, `name`, `brand`, `image`).
-JSON-LD yoksa OpenGraph/`<h1>` fallback'i devreye girer.
+Zamanlanmış işler arasında tamamlanma bağımlılığı yoktur; geciken toplama aynı günkü Sheet aktarımına yetişmeyebilir. GitHub cron kesin saat SLA'sı değildir. Kaynak görseller yeniden barındırılmaz; kaynağın görseli kaldırması halinde bağlantı bozulabilir.
 
----
+## Güvenli geliştirme
 
-## Kurulum (adım adım)
-
-### 1. Repo'yu oluştur
-Bu klasörü kendi (tercihen **private**) GitHub repo'na push et.
-
-### 2. Firebase servis hesabı anahtarı al
-- Firebase Console → Project Settings → **Service accounts** → *Generate new private key*.
-- İnen JSON dosyasının içeriğini kopyala. Bu hesabın **Cloud Datastore User** (`roles/datastore.user`) rolü olmalı.
-- ⚠️ Bu dosyayı **asla repo'ya koyma** (`.gitignore`'da zaten engelli).
-
-### 3. GitHub secrets/variables ekle
-Repo → Settings → Secrets and variables → Actions:
-- **Secret** `GCP_SA_KEY` = servis hesabı JSON'unun tamamı.
-- **Secret** `GCP_PROJECT_ID` = Firebase proje kimliğin.
-- (Opsiyonel) **Variable** `ENABLED_CHAINS` = ör. `off,sok` (boş bırakırsan `all`).
-
-### 4. Çalıştır
-- Otomatik: her gün 03:00 (Europe/Istanbul) cron tetikler.
-- Elle: repo → Actions → *Kyron Market Scrape* → **Run workflow** (istersen `chains` gir).
-
----
-
-## Lokal test (opsiyonel)
+Java 21 ve Gradle 8.10 ile, üretim kimlik bilgisi vermeden:
 
 ```bash
-gcloud auth application-default login    # veya GOOGLE_APPLICATION_CREDENTIALS=/path/key.json
-export GCP_PROJECT_ID=your-project
-export ENABLED_CHAINS=off,sok
-
-gradle installBrowsers    # Playwright Chromium'u indirir (bir kez)
-gradle run --args="off,sok"
+gradle --no-daemon test build
 ```
 
----
+Sınırlı dış kaynak okuma testi, veritabanına yazmadan:
 
-## Firestore ücretsiz kota yönetimi (önemli)
+```bash
+gradle installBrowsers  # Chromium kullanan kaynaklar için
+gradle sourceSmoke --args="migros"
+```
 
-Spark planı günlük **~20.000 yazma** ile sınırlıdır. Tüm zincirleri tek günde tam çekmek bu sınırı aşabilir.
-Kota içinde kalmanın yolları:
+Bunlar tam katalog veya fiziksel AppSheet kamera/offline kabul testleri değildir.
 
-1. **Zincir rotasyonu:** Her gün farklı bir alt küme çek. `ENABLED_CHAINS` variable'ını günlere böl,
-   ya da farklı cron'larla ayrı job'lar tanımla. Örnek (haftalık dağıtım):
-   ```yaml
-   # .github/workflows/scrape.yml içine ek cron'lar
-   on:
-     schedule:
-       - cron: "0 0 * * 1"   # Pazartesi
-       - cron: "0 0 * * 3"   # Çarşamba
-   ```
-   ve manuel çalıştırmada `chains` gir/repo variable ile hangi zincir olacağını belirle.
-2. **Yazılmadan önce okuma yok:** Kod bilerek read-before-write yapmaz (okuma kotasını korur);
-   aynı çalışma içinde tekrarlayan barkodlar da atlanır.
-3. **`off` için bulk dump:** Yüz binlerce satırlık ilk yüklemeyi API yerine resmi Open Food Facts
-   **data dump**'ıyla yap: https://world.openfoodfacts.org/data (ülke: Turkey). Tek seferlik
-   toplu import, günlük yazma kotanı sabaha karşı parçalı çalıştırarak ya da yerel batch ile yapılabilir.
+## Üretim çalıştırması — veri yazar
 
----
+Mevcut yetkili kurulum `GCP_PROJECT_ID` ve `GCP_SA_KEY` GitHub secrets kullanır. Anahtarları, kullanıcı verisini ve özel yedekleri repoya veya hata raporuna eklemeyin. Var olan secret'ı görmek için çıktı/log üretmeyin. Gerekli servis hesabı erişimi en az ayrıcalıkla yönetilmelidir.
 
-## Veri modeli (Firestore, doc id = barkod)
+`Kyron Market Scrape` elle çalıştırıldığında Firestore'a; `Sync AppSheet Product Catalog` elle çalıştırıldığında kaynak Sheet'e yazabilir. Bunlar “zararsız test” değildir. Aynı şekilde sheets kodu, build veya sync workflow değişikliklerinin main'e alınması path filtresine göre canlı eşitlemeyi tetikleyebilir.
 
-| Alan | Tip | Not |
-|------|-----|-----|
-| `barcode` | string | EAN-13, birincil anahtar |
-| `name` | string | Kanonik ad |
-| `brand` | string? | Marka |
-| `imageUrl` | string? | Kaynak görsel URL'si (rehost edilmez) |
-| `category` | string? | Kategori |
-| `unit` | string? | ör. "500 g" |
-| `source` | string | `off` / zincir slug'ı / `user` |
-| `sourceUrl` | string? | Kaynak sayfa |
-| `confidence` | number | Kaynak güven skoru |
-| `updatedAt` | number | epoch ms |
+Kota bütçeleri ürün sayısının tamamlanacağına dair vaat değildir. Bütçe/süre dolumu, başarısız istekler, görsel doğrulaması ve kaynak hataları günlük çıktılarla birlikte değerlendirilmelidir. AppSheet senkronizasyon gecikmesi de ayrıca izlenmelidir.
 
----
+## Operasyon belgeleri
 
-## Dürüst uyarılar
+- [CI, güvenlik sınırları ve yayın kapıları](docs/CI_AND_RELEASE.md)
+- [Günlük kaynak toplama](docs/nightly-scrape.md)
+- [Google Sheets aktarımı](docs/GOOGLE_SHEETS_SYNC.md)
+- [Kaynak durumları](docs/source-status.md)
+- [Macrocenter doğrulaması](docs/macrocenter.md)
 
-1. **"Tam ve eksiksiz" kalıcı değildir.** Site HTML'i değişince ilgili scraper'ın selector'larını
-   güncellemen gerekir — bu bir bakım işi. `chains/` altındaki `// TODO`'ları tamamla.
-2. **Kapsam kaynağa göre değişir.** Migros, CarrefourSA, Macrocenter, ŞOK, A101 barkod açısından
-   zengin; File/Hakmar zayıf; **BİM** online barkodlu katalog vermez (dahil edilmedi).
-3. **Temel katman `off` ile başla.** Tek başına yüz binlerce yerli ürünü barkod+görselle getirir.
-4. **Görseller hotlink'tir.** Ücretsiz kalmak için kaynak URL saklanır; kaynak silerse görsel kırılabilir.
-   İleride ücretsiz **Cloudflare R2** (10 GB) veya Firebase Storage'a taşıyabilirsin.
-5. **Yasal/etik:** `robots.txt` ve kullanım şartlarına uy; `REQUEST_DELAY_MS` ile nazik davran;
-   mümkünse açık lisanslı (OFF) görseli tercih et.
-
----
-
-## Ücretsizi aşarsan (büyüme yolu)
-
-- **Görsel barındırma:** Cloudflare R2 (10 GB ücretsiz) veya Firebase Storage.
-- **Daha yüksek yazma limiti:** Firestore Blaze (kullandıkça-öde) ya da Supabase/Neon (Postgres, ücretsiz katman).
-- **Daha uzun/sık job:** Kendi VPS'inde cron, ya da Cloud Run + Cloud Scheduler (bu repo'nun önceki sürümü).
-
-
-## Macrocenter görsel ve etiket barkodu desteği
-
-Güncel kategori keşfi, sonsuz kaydırma, ürün görsel URL'leri ve etiket görsellerinden
-barkod okuma desteği için [Macrocenter kullanım ve doğrulama notlarına](docs/macrocenter.md) bakın.
-Önce `gradle macrocenterSmoke` ile veritabanına yazmadan deneyin. Kaynak deneysel kalır;
-Actions üzerinde çalıştırırken `chains=macrocenter` seçilmelidir.
+Kaynakların kullanım şartlarına, robots kurallarına, lisans/atıf yükümlülüklerine ve hız sınırlarına uyun. Daha agresif istek veya erişim engeli aşma yöntemleri çözüm sayılmaz. Bu belgeler güvenlik sertifikası, üretim hazır beyanı veya tüm entegrasyonların kabulü değildir.

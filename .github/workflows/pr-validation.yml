@@ -1,53 +1,27 @@
-name: PR Validation and Firestore Smoke
+# Legacy automatic validation used to include real Firestore writes.
+# Keep this entry point manual and credential-free; CI owns PR/push validation.
+name: Manual Validation (No Production Writes)
 
 on:
-  push:
-    branches: ["hardening/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
+
+concurrency:
+  group: manual-validation-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: "8.10"
-      - name: Test and build
-        id: build
-        run: gradle --no-daemon test build
-      - name: Report validation
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ steps.build.outcome }}
-        run: gh pr comment 1 --body "Automated test/build result: **$RESULT**. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-  firestore-smoke:
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     env:
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      FIRESTORE_COLLECTION: products
-      FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
-      FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
-      ENABLED_CHAINS: off
-      REQUEST_DELAY_MS: "1000"
-      MAX_WRITES_PER_RUN: "20"
-      MAX_RUN_MINUTES: "15"
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
+      SHEETS_SYNC_ENABLED: "false"
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -55,28 +29,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: "8.10"
-      - name: Validate and write credentials
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          test -n "$GCP_PROJECT_ID" || { echo "GCP_PROJECT_ID secret is missing"; exit 1; }
-          test -n "$GCP_SA_KEY" || { echo "GCP_SA_KEY secret is missing"; exit 1; }
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          chmod 600 "$GOOGLE_APPLICATION_CREDENTIALS"
-      - name: Run limited OFF smoke
-        id: smoke
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle --no-daemon run --args="off" 2>&1 | tee smoke.log
-      - name: Report smoke
+      - name: Unit tests and build (no production credentials)
+        run: gradle --no-daemon test build
+      - name: Preserve unit test reports
         if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RESULT: ${{ steps.smoke.outcome }}
-        run: |
-          SUMMARY="$(grep -E 'SUMMARY|TOTAL written' smoke.log 2>/dev/null | tail -n 4 | tr '\n' ' ' | sed 's/`//g')"
-          gh pr comment 1 --body "Limited Firestore smoke result: **$RESULT**. ${SUMMARY:-No product summary produced.} Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      - name: Cleanup credentials
-        if: always()
-        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-unit-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/test-results/test/*.xml
+          if-no-files-found: warn
+          retention-days: 7
