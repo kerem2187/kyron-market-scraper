@@ -43,4 +43,4 @@ Bunlar canlı veri testi değildir. Kaynak smoke başarısı tüm günlük katal
 
 Bu paketin revert'i CI davranışını geri çevirir; ürün verisini geri yüklemez. Eski geçersiz/yazan workflow'u geri getirmek güvenli varsayılan değildir: gerekirse yalnız yeni workflow değişikliğini düzeltin. PR #16/#17 bu pakete dahil değildir.
 
-Dal koruması, zorunlu inceleme, MFA, secret rotasyonu ve en az ayrıcalıklı servis hesabı ayrıca değerlendirilmelidir; bu paket bunları etkinleştirmiş sayılmaz. Mevcut bağımlılık/action sürümleri topluca yükseltilmedi. Ücretsiz hizmetler kota ve sağlayıcı şartlarına tabidir; sıfır fatura veya üretim lisansı garantisi verilmez.
+Dal koruması, zorunlu inceleme, MFA, secret rotasyonu ve en az ayrıcalıklı servis hesabı ayrıca değerlendirilmelidir; bu paket bunları etkinleştirmiş sayılmaz. Kotlin/Java/Gradle bağımlılıkları topluca yükseltilmedi. CI eklentileri resmi v7/v6/v6 commit SHA'larına sabitlendi; artifact yükleyici Node 24 kullanan v7 commit'ine taşındı. Üretim iş akışlarının eklentileri bu pakette değiştirilmedi. Ücretsiz hizmetler kota ve sağlayıcı şartlarına tabidir; sıfır fatura veya üretim lisansı garantisi verilmez.
