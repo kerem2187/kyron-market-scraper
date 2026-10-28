@@ -28,7 +28,10 @@ class SheetsCatalogSync(private val db: Firestore) {
         require(Config.sheetsSpreadsheetId.isNotBlank()) { "SHEETS_SPREADSHEET_ID is required" }
         val products = loadProducts()
         val existing = readCatalog()
-        val plan = CatalogSyncPlan.build(products, existing)
+        // Load/validate dictionary before any write; never fall back to unreviewed labels.
+        val taxonomy = readTaxonomy()
+        val plan = CatalogSyncPlan.build(products, existing, taxonomy)
+        log.info { "SHEETS_CATEGORY_GUARD dictionaryPairs=${taxonomy.pairCount} suppressed=${plan.categorySuggestionsSuppressed} exactLabelsOnly=true" }
         if (existing.isEmpty()) {
             // Only initializes/rewrites the known header, never clears existing product rows.
             request("PUT", valuesUrl("A1:E1") + "?valueInputOption=RAW", buildJsonObject {
@@ -97,10 +100,17 @@ class SheetsCatalogSync(private val db: Firestore) {
         }
     }
 
+    private fun readTaxonomy(): CatalogTaxonomy {
+        val response = request("GET", valuesUrl("A1:C", Config.sheetsCategoryTab))
+        val values = json.parseToJsonElement(response).jsonObject["values"]?.jsonArray
+            ?.map { row -> row.jsonArray.map { it.jsonPrimitive.content } }.orEmpty()
+        return CatalogTaxonomy.fromSheetValues(values)
+    }
+
     private fun row(vararg values: String): JsonArray = buildJsonArray { values.forEach(::add) }
 
-    private fun valuesUrl(range: String): String {
-        val a1 = "'${Config.sheetsCatalogTab}'!$range"
+    private fun valuesUrl(range: String, tab: String = Config.sheetsCatalogTab): String {
+        val a1 = "'${tab.replace("'", "''")}'!$range"
         val encoded = URLEncoder.encode(a1, StandardCharsets.UTF_8).replace("+", "%20")
         return "https://sheets.googleapis.com/v4/spreadsheets/${Config.sheetsSpreadsheetId}/values/$encoded"
     }
