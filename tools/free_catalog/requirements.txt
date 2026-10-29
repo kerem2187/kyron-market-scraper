@@ -1,0 +1,5 @@
+# No paid API keys; the Crawl4AI library is open source.
+crawl4ai==0.9.5
+beautifulsoup4==4.15.0
+Pillow==13.0.0
+aiohttp==3.14.5
