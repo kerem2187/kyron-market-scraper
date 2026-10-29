@@ -1,0 +1,61 @@
+name: Free Catalog Companion (No Production Writes)
+
+on:
+  push:
+    branches: [main]
+    paths: ['tools/free_catalog/**', '.github/workflows/free-catalog.yml']
+  pull_request:
+    paths: ['tools/free_catalog/**', '.github/workflows/free-catalog.yml']
+  workflow_dispatch:
+    inputs:
+      barcodes:
+        description: 'Exact GTINs, comma-separated; maximum 30. Public OFF lookup only.'
+        required: true
+        default: '8690632992846'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-catalog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Isolated free Python dependencies
+        run: |
+          python3 --version
+          python3 -m venv .catalog-venv
+          .catalog-venv/bin/pip install -r tools/free_catalog/requirements.txt
+      - name: Credential-free unit tests
+        working-directory: tools/free_catalog
+        run: ../../.catalog-venv/bin/python -m unittest -v
+      - name: Explicit read-only product lookup
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: tools/free_catalog
+        env:
+          REQUESTED_BARCODES: ${{ inputs.barcodes }}
+        run: |
+          ../../.catalog-venv/bin/python - <<'PY'
+          import asyncio, json, os
+          from catalog_pipeline import gtin, run
+          values = [v.strip() for v in os.environ['REQUESTED_BARCODES'].split(',') if v.strip()]
+          assert values and len(values) <= 30, 'Provide 1..30 GTINs'
+          for value in values: gtin(value)
+          summary = asyncio.run(run(barcodes=values, max_items=30))
+          print(json.dumps(summary, ensure_ascii=False, indent=2))
+          PY
+      - name: Preserve reviewable candidates, never publish to KATALOG
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: free-catalog-candidates-${{ github.run_id }}
+          path: tools/free_catalog/catalog_output/
+          if-no-files-found: error
+          retention-days: 7
