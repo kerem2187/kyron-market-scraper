@@ -9,7 +9,7 @@ version = "2.0.0"
 repositories { mavenCentral() }
 
 dependencies {
-    implementation("org.jsoup:jsoup:1.18.1")
+    implementation("org.jsoup:jsoup:1.23.2")
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.zxing:javase:3.5.3")
     implementation("com.microsoft.playwright:playwright:1.64.0")
