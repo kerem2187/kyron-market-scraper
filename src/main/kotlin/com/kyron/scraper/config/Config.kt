@@ -12,6 +12,7 @@ object Config {
 
     val sheetsSyncEnabled: Boolean get() = envOr("SHEETS_SYNC_ENABLED", "false").equals("true", ignoreCase = true)
     val sheetsSpreadsheetId: String get() = envOr("SHEETS_SPREADSHEET_ID", "")
+    val sheetsCategoryTab: String get() = envOr("SHEETS_CATEGORY_TAB", "KATEGORİLER")
     val sheetsCatalogTab: String get() = envOr("SHEETS_CATALOG_TAB", "KATALOG")
 
     /** Hard safety limits. A canonical update can consume up to two writes. */
