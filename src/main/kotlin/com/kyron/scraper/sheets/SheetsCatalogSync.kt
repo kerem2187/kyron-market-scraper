@@ -28,6 +28,7 @@ class SheetsCatalogSync(private val db: Firestore) {
         require(Config.sheetsSpreadsheetId.isNotBlank()) { "SHEETS_SPREADSHEET_ID is required" }
         val products = loadProducts()
         val existing = readCatalog()
+        log.info { "SHEETS_QUALITY phase=before ${CatalogQualityAudit.inspect(existing)} semanticValidation=false imageFetchValidation=false" }
         val plan = CatalogSyncPlan.build(products, existing)
         if (existing.isEmpty()) {
             // Only initializes/rewrites the known header, never clears existing product rows.
@@ -55,6 +56,7 @@ class SheetsCatalogSync(private val db: Firestore) {
             request("POST", valuesUrl("A:E") + ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS", body)
         }
         val verified = readCatalog()
+        log.info { "SHEETS_QUALITY phase=after ${CatalogQualityAudit.inspect(verified)} semanticValidation=false imageFetchValidation=false" }
         val byBarcode = verified.groupBy { it.row.barcode }
         plan.additions.forEach { expected ->
             check(byBarcode[expected.barcode].orEmpty().any { it.row == expected }) {
@@ -69,7 +71,7 @@ class SheetsCatalogSync(private val db: Firestore) {
         return CatalogSyncReport(products.size, existing.size, plan.inserted, plan.enriched, plan.unchanged,
             duplicatesRemoved = 0, finalRows = verified.size, incompleteSkipped = plan.incompleteSkipped,
             duplicateRowsObserved = plan.duplicateRows)
-            .also { log.info { "SHEETS_SYNC $it verified=true" } }
+            .also { log.info { "SHEETS_SYNC $it verified=true verificationScope=plannedWritesOnly catalogQualityGuaranteed=false" } }
     }
 
     private fun loadProducts(): List<Product> = db.collection(Config.firestoreCollection).get().get().documents
