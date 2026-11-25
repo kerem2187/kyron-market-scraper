@@ -3,18 +3,18 @@ import com.kyron.scraper.model.Product
 import kotlin.test.*
 class CatalogSyncPlanTest {
     private fun product(code: String = "8691381000486") = Product(code, "Name", imageUrl="https://example.test/image.jpg", source="off")
-    @Test fun appendsOnlyCompleteProducts() {
+    @Test fun appendsValidProductsIncludingWithoutImage() {
         val plan = CatalogSyncPlan.build(listOf(product(), product("invalid"), product("8690504017301").copy(imageUrl=null)), emptyList())
-        assertEquals(1, plan.inserted); assertEquals(2, plan.incompleteSkipped)
+        assertEquals(2, plan.inserted); assertEquals(1, plan.incompleteSkipped)
     }
-    @Test fun preservesManualValuesAndOriginalRowNumbers() {
-        val row = IndexedCatalogRow(17, CatalogRow("8691381000486", "Manual", "Category", "Sub", ""))
+    @Test fun updatesExistingValuesWhenFresherDataArrives() {
+        val row = IndexedCatalogRow(17, CatalogRow("8691381000486", "Old Name", "Category", "Sub", ""))
         val plan = CatalogSyncPlan.build(listOf(product()), listOf(row))
-        assertEquals(listOf(CatalogCellUpdate(17,"E","https://example.test/image.jpg")), plan.updates)
+        assertEquals(listOf(CatalogCellUpdate(17,"B","Name"), CatalogCellUpdate(17,"E","https://example.test/image.jpg")), plan.updates)
         assertTrue(plan.additions.isEmpty())
     }
     @Test fun duplicateRowsAreReportedNotDeletedOrCompacted() {
-        val a=IndexedCatalogRow(2,CatalogRow("8691381000486","Manual",imageUrl="local/image.jpg"))
+        val a=IndexedCatalogRow(2,CatalogRow("8691381000486","Name",imageUrl="https://example.test/image.jpg"))
         val b=IndexedCatalogRow(9,a.row)
         val plan=CatalogSyncPlan.build(listOf(product()),listOf(a,b))
         assertEquals(1,plan.duplicateRows);assertTrue(plan.updates.isEmpty());assertTrue(plan.additions.isEmpty())
