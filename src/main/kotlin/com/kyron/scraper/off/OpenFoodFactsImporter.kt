@@ -1,14 +1,10 @@
 package com.kyron.scraper.off
 
-import com.kyron.scraper.config.Config
 import com.kyron.scraper.model.RawProduct
 import com.kyron.scraper.scraper.ChainScraper
 import com.kyron.scraper.scraper.SourceStatus
-import kotlinx.coroutines.delay
 import kotlinx.serialization.json.*
 import mu.KotlinLogging
-import java.net.HttpURLConnection
-import java.net.URI
 
 private val log = KotlinLogging.logger {}
 
@@ -19,9 +15,10 @@ class OpenFoodFactsImporter(
     private val maxRetries: Int = 4,
     private val client: OffApiClient = OffApiClient(maxAttempts = maxRetries),
     private val onPage: (Int, Int) -> Unit = { _, _ -> },
+    private val baseUrl: String = "https://world.openfoodfacts.org",
+    override val slug: String = "off",
+    override val displayName: String = "Open Food Facts",
 ) : ChainScraper {
-    override val slug = "off"
-    override val displayName = "Open Food Facts"
     override val barcodeAvailable = true
     override val status = SourceStatus.VERIFIED
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -30,29 +27,38 @@ class OpenFoodFactsImporter(
         var page = 1
         var done = false
         while (page <= maxPages) {
-            val url = "https://world.openfoodfacts.org/api/v2/search" +
-                "?countries_tags_en=$country&fields=code,product_name,product_name_tr,brands,image_url,categories" +
+            val url = "$baseUrl/api/v2/search" +
+                "?countries_tags_en=$country&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories" +
                 "&page=$page&page_size=$pageSize"
             val body = client.get(url)
             val products = runCatching { json.parseToJsonElement(body).jsonObject["products"]?.jsonArray }
-                .onFailure { log.warn { "[off] page $page parse failed: ${it.message}" } }.getOrNull() ?: error("[off] Invalid API response on page $page")
+                .onFailure { log.warn { "[$slug] page $page parse failed: ${it.message}" } }
+                .getOrNull() ?: error("[$slug] Invalid API response on page $page")
             onPage(page, products.size)
             if (products.isEmpty()) { done = true; break }
             for (element in products) {
                 val o = element.jsonObject
-                val barcode = o["code"]?.jsonPrimitive?.contentOrNull ?: continue
-                val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                    ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: continue
-                emit(RawProduct(name = name, brand = o["brands"]?.jsonPrimitive?.contentOrNull, barcode = barcode,
-                    sourceImageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull,
-                    category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(),
-                    sourceUrl = "https://world.openfoodfacts.org/product/$barcode"))
+                val barcode = o["code"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
+                val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                    ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
+                val imageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                    ?: o["image_front_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                    ?: o["image_small_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                emit(
+                    RawProduct(
+                        name = name,
+                        brand = o["brands"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() },
+                        barcode = barcode,
+                        sourceImageUrl = imageUrl,
+                        category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(),
+                        sourceUrl = "$baseUrl/product/$barcode",
+                    )
+                )
             }
-            log.info { "[off] page $page -> ${products.size} products" }
+            log.info { "[$slug] page $page -> ${products.size} products" }
             if (products.size < pageSize) { done = true; break }
             page++ // OffApiClient paces every request, including retry attempts.
         }
-        println("OFF_COVERAGE pages=${minOf(page,maxPages)} exhausted=$done fullCatalogGuaranteed=false")
+        println("${slug.uppercase()}_COVERAGE pages=${minOf(page, maxPages)} exhausted=$done fullCatalogGuaranteed=false")
     }
-
 }
