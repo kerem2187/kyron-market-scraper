@@ -58,7 +58,7 @@ jobs:
           timeout --signal=TERM --kill-after=15s 300s gradle --no-daemon offPaginationSmoke 2>&1 | tee off-pagination.log
       - name: Preserve source diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: source-smoke-${{ matrix.source }}
           path: |
