@@ -8,9 +8,30 @@ import com.kyron.scraper.scraper.chains.*
 
 class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner) {
     private val all: List<ChainScraper> = listOf(
-        OpenFoodFactsImporter(), MarketFiyatiImporter(), MigrosScraper(browser),
-        CarrefourSaScraper(browser), MacrocenterScraper(browser, fetcher), SokScraper(fetcher),
-        A101Scraper(browser), FileMarketScraper(fetcher), HakmarScraper(fetcher),
+        OpenFoodFactsImporter(),
+        OpenFoodFactsImporter(
+            baseUrl = "https://world.openbeautyfacts.org",
+            slug = "obf",
+            displayName = "Open Beauty Facts",
+        ),
+        OpenFoodFactsImporter(
+            baseUrl = "https://world.openproductsfacts.org",
+            slug = "opf",
+            displayName = "Open Products Facts",
+        ),
+        OpenFoodFactsImporter(
+            baseUrl = "https://world.openpetfoodfacts.org",
+            slug = "opff",
+            displayName = "Open Pet Food Facts",
+        ),
+        MarketFiyatiImporter(),
+        MigrosScraper(browser),
+        CarrefourSaScraper(browser),
+        MacrocenterScraper(browser, fetcher),
+        SokScraper(fetcher),
+        A101Scraper(browser),
+        FileMarketScraper(fetcher),
+        HakmarScraper(fetcher),
     )
 
     fun resolve(enabled: List<String>): List<ChainScraper> {
