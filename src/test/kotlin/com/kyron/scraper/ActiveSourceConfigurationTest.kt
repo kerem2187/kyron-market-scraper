@@ -9,8 +9,8 @@ class ActiveSourceConfigurationTest {
 
     @Test fun productionDefaultsContainOnlyApprovedSources() {
         val workflow = read(".github/workflows/scrape.yml")
-        assertTrue(workflow.contains("default: \"macrocenter,migros,sok,off,obf,opf,opff\""))
-        assertTrue(workflow.contains("github.event.inputs.chains || 'macrocenter,migros,sok,off,obf,opf,opff'"))
+        assertTrue(workflow.contains("default: \"macrocenter,migros,marketfiyati,sok,off,obf,opf,opff\""))
+        assertTrue(workflow.contains("github.event.inputs.chains || 'macrocenter,migros,marketfiyati,sok,off,obf,opf,opff'"))
         assertFalse(workflow.contains("'a101'"))
         assertFalse(workflow.contains("'carrefoursa'"))
     }
@@ -24,7 +24,7 @@ class ActiveSourceConfigurationTest {
 
     @Test fun runnerRejectsExcludedSourceNames() {
         val runner = read(".github/scripts/run-sources.sh")
-        assertTrue(runner.contains("macrocenter|migros|sok|off|obf|opf|opff|all)"))
+        assertTrue(runner.contains("macrocenter|migros|marketfiyati|sok|off|obf|opf|opff|all)"))
         assertFalse(runner.contains("|a101|"))
         assertFalse(runner.contains("|carrefoursa|"))
     }
