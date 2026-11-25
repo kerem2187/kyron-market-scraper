@@ -12,17 +12,32 @@ import java.net.URI
 
 private val log = KotlinLogging.logger {}
 
-/** Disabled until commercial-use permission and a stable response contract are confirmed. */
+/** Public Turkish supermarket catalog via marketfiyati.org.tr covering all major aisles (including Migros). */
 class MarketFiyatiImporter(
-    private val pageSize: Int = 25,
+    private val pageSize: Int = 50,
     private val maxPagesPerKeyword: Int = 20,
 ) : ChainScraper {
     override val slug = "marketfiyati"
     override val displayName = "Market Fiyatı"
     override val barcodeAvailable = true
-    override val status = SourceStatus.DISABLED
+    override val status = SourceStatus.EXPERIMENTAL
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    private val keywords = listOf("süt", "yoğurt", "peynir", "makarna", "pirinç", "çay", "kahve")
+    private val keywords = listOf(
+        "süt", "yoğurt", "peynir", "tereyağı", "margarin", "ayran", "kefir", "krema", "labne", "kaymak", "yumurta",
+        "sucuk", "salam", "sosis", "pastırma", "jambon", "kavurma", "tavuk", "köfte", "ton balığı", "füme",
+        "zeytin", "bal", "reçel", "pekmez", "tahin", "helva", "fındık ezmesi", "fıstık ezmesi", "gevrek", "yulaf", "granola",
+        "ekmek", "tost ekmeği", "lavaş", "galeta", "grissini", "kraker", "un", "maya", "kabartma", "nişasta", "irmik",
+        "makarna", "erişte", "noodle", "pirinç", "bulgur", "mercimek", "nohut", "fasulye", "kinoa", "çorba", "bulyon",
+        "zeytinyağı", "ayçiçek yağı", "salça", "ketçap", "mayonez", "hardal", "sos", "sirke", "nar ekşisi", "turşu", "konserve", "baharat", "tuz", "şeker",
+        "çay", "kahve", "türk kahvesi", "filtre kahve", "su", "maden suyu", "soda", "kola", "gazoz", "meyve suyu", "soğuk çay", "enerji içeceği", "limonata",
+        "çikolata", "bisküvi", "gofret", "kek", "cips", "kuruyemiş", "fındık", "badem", "ceviz", "fıstık", "sakız", "şekerleme", "dondurma", "puding",
+        "deterjan", "yumuşatıcı", "bulaşık", "çamaşır suyu", "yüzey temizleyici", "sabun", "sünger", "çöp torbası", "streç", "alüminyum folyo",
+        "tuvalet kağıdı", "kağıt havlu", "peçete", "ıslak mendil",
+        "şampuan", "saç kremi", "duş jeli", "diş macunu", "diş fırçası", "deodorant", "parfüm", "krem", "güneş kremi", "tıraş", "ped", "pamuk",
+        "bebek bezi", "bebek maması", "devam sütü",
+        "kedi maması", "köpek maması", "kedi kumu",
+        "migros", "m life", "organik", "glutensiz", "laktozsuz", "protein", "vegan", "donuk", "pizza", "börek"
+    )
 
     override suspend fun scrape(emit: suspend (RawProduct) -> Unit) {
         val seen = HashSet<String>()
