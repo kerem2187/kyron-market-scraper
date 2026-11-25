@@ -13,7 +13,7 @@ printf '| Source | Process result |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY:-/de
 for source in "${sources[@]}"; do
   source="${source//[[:space:]]/}"
   case "$source" in
-    macrocenter|migros|sok|off|all) ;;
+    macrocenter|migros|sok|off|obf|opf|opff|all) ;;
     *) echo "::error::Unknown or disabled source: $source"; failed=1; continue ;;
   esac
   echo "::group::Source $source"
