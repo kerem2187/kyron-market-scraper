@@ -15,6 +15,12 @@ data class CatalogRow(
         imageUrl = imageUrl.ifBlank { product.imageUrl.orEmpty() },
     )
 
+    fun mergeUpdatedFrom(product: Product): CatalogRow = copy(
+        name = product.name.ifBlank { name },
+        category = product.category?.takeIf { it.isNotBlank() } ?: category,
+        imageUrl = product.imageUrl?.takeIf { it.isNotBlank() } ?: imageUrl,
+    )
+
     companion object {
         fun fromProduct(product: Product): CatalogRow = CatalogRow(
             barcode = product.barcode,
