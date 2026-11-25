@@ -27,7 +27,7 @@ jobs:
       FIRESTORE_COLLECTION: products
       FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
       SHEETS_SYNC_ENABLED: "true"
-      SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+      SHEETS_SPREADSHEET_ID: "1Qn-JgB-W6b8QV2_sy_dN4wKgQM4qlQCULLrf-LiqORQ"
       SHEETS_CATALOG_TAB: "KATALOG"
       GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/gcp-key.json
     steps:
