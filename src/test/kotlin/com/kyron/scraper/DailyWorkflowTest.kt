@@ -6,7 +6,7 @@ class DailyWorkflowTest {
     private fun read(path:String)=Files.readString(Path.of(path))
     @Test fun sourcesAreIndependentAndOffRemainsEnabled() {
         val yml=read(".github/workflows/scrape.yml")
-        assertTrue(yml.contains("fail-fast: false"));assertTrue(yml.contains("default: \"macrocenter,migros,sok,off\""))
+        assertTrue(yml.contains("fail-fast: false"));assertTrue(yml.contains("default: \"macrocenter,migros,sok,off,obf,opf,opff\""))
         assertTrue(yml.contains("needs: [prepare, sources]"));assertTrue(yml.contains("always() && !cancelled()"))
     }
     @Test fun allSheetWritersShareTheSameLock() {
