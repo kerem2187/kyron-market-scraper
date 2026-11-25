@@ -28,9 +28,9 @@ class MacrocenterScraper(
     private val fetcher: PoliteFetcher,
     private val seeds: List<String> = System.getenv("MACROCENTER_SEED_URLS")
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
-    private val maxPagesPerSeed: Int = setting("MACROCENTER_MAX_LISTING_PAGES", 3, 1..10),
-    private val maxProducts: Int = setting("MACROCENTER_MAX_PRODUCTS", 30, 1..1000),
-    private val maxRunMinutes: Int = setting("MACROCENTER_MAX_RUN_MINUTES", 10, 1..30),
+    private val maxPagesPerSeed: Int = setting("MACROCENTER_MAX_LISTING_PAGES", 3, 1..20),
+    private val maxProducts: Int = setting("MACROCENTER_MAX_PRODUCTS", 30, 1..2500),
+    private val maxRunMinutes: Int = setting("MACROCENTER_MAX_RUN_MINUTES", 10, 1..45),
 ) : ChainScraper {
     override val slug = "macrocenter"
     override val displayName = "Macrocenter"
@@ -102,7 +102,7 @@ class MacrocenterScraper(
                         log.warn { "[$slug] category failed $category: ${e.message}" }
                         continue
                     }
-                    for (pageNumber in 1..maxPagesPerSeed) {
+                    var categoryConsecutiveErrors = 0; pageLoop@ for (pageNumber in 1..maxPagesPerSeed) {
                         budget.checkTime()
                         val links = productLinks(Jsoup.parse(listing.content(), category))
                         for (url in links) {
@@ -154,15 +154,15 @@ class MacrocenterScraper(
                             } catch (e: Exception) {
                                 rethrowStop(e)
                                 errors++
-                                consecutiveErrors++
+                                consecutiveErrors++; categoryConsecutiveErrors++
                                 log.warn { "[$slug] attempt=${budget.attempts}/$maxProducts product failed $url: ${e.message?.take(300)}" }
-                                if (consecutiveErrors >= 5) error("Macrocenter: stopped after 5 consecutive product errors")
+                                if (consecutiveErrors >= 25) error("Macrocenter: stopped after 25 consecutive product errors"); if (categoryConsecutiveErrors >= 5) { log.warn { "[$slug] skipping category $category after 5 consecutive product errors" }; break@pageLoop }
                                 null
                             }
                             budget.checkTime()
                             if (product != null) {
                                 consecutiveErrors = 0
-                                discovered++
+                                categoryConsecutiveErrors = 0; discovered++
                                 if (product.barcode != null) withBarcode++
                                 // Never catch downstream write-budget or Flow cancellation signals.
                                 emit(product)
