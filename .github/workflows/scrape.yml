@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       chains:
-        description: "Comma-separated source slugs; 'all' means verified sources only"
-        default: "macrocenter,migros,sok,off"
+        description: "Comma-separated source slugs; 'all' means verified open-source catalogs only"
+        default: "macrocenter,migros,sok,off,obf,opf,opff"
         required: true
       seed_urls:
         description: "Optional Macrocenter category/list URLs; blank discovers categories"
@@ -40,7 +40,8 @@ env:
   FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
   FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
   SHEETS_SYNC_ENABLED: "false"
-  SHEETS_SPREADSHEET_ID: "14XFkaUr4nfxfv85Xwp5KyIhFC-1ZxZiUqzqBPTtvxBY"
+  # Aktif KYRON SKT TAKİP (URUN_TAKIP) E-Tablo ID'si (eski yedek ID yerine güncellendi)
+  SHEETS_SPREADSHEET_ID: "1Qn-JgB-W6b8QV2_sy_dN4wKgQM4qlQCULLrf-LiqORQ"
   SHEETS_CATALOG_TAB: "KATALOG"
   REQUEST_DELAY_MS: "3000"
   MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '500' }}
@@ -63,19 +64,21 @@ jobs:
       - name: Validate active source scope and budgets
         id: scope
         env:
-          SOURCE_SELECTION: ${{ github.event.inputs.chains || 'macrocenter,migros,sok,off' }}
+          SOURCE_SELECTION: ${{ github.event.inputs.chains || 'macrocenter,migros,sok,off,obf,opf,opff' }}
         run: |
           python3 - <<'PY'
           import json, os
           requested = [s.strip().lower() for s in os.environ['SOURCE_SELECTION'].split(',') if s.strip()]
-          # The registry's VERIFIED-only 'all' currently means OFF; explicit defaults include four sources.
-          if requested == ['all']: requested = ['off']
+          if requested == ['all']:
+              requested = ['off', 'obf', 'opf', 'opff']
           sources = list(dict.fromkeys(requested))
-          assert sources and set(sources) <= {'macrocenter', 'migros', 'sok', 'off'}, 'Unknown or disabled source'
+          allowed = {'macrocenter', 'migros', 'sok', 'off', 'obf', 'opf', 'opff'}
+          assert sources and set(sources) <= allowed, f'Unknown or disabled source: {sources}'
           for key, upper in [('MAX_RUN_MINUTES', 30), ('MAX_WRITES_PER_RUN', 5000), ('MACROCENTER_MAX_PRODUCTS', 1000)]:
               value = os.environ[key]
               assert value.isascii() and value.isdigit() and 1 <= int(value) <= upper, f'Invalid {key}'
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f: f.write('sources=' + json.dumps(sources) + '\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('sources=' + json.dumps(sources) + '\n')
           PY
 
   sources:
@@ -110,7 +113,7 @@ jobs:
         run: |
           echo '### Source: ${{ matrix.source }}' >> "$GITHUB_STEP_SUMMARY"
           echo 'Process success is not a guarantee of a full market catalog. Inspect budgets, skipped records and coverage.' >> "$GITHUB_STEP_SUMMARY"
-          grep -E 'SUMMARY |SOURCE_RESULT|CATALOG_COVERAGE|FINAL attempts|OFF_COVERAGE|IMAGE_REJECTED' source-run.log | tail -30 >> "$GITHUB_STEP_SUMMARY" || true
+          grep -E 'SUMMARY |SOURCE_RESULT|CATALOG_COVERAGE|FINAL attempts|OFF_COVERAGE|OBF_COVERAGE|OPF_COVERAGE|OPFF_COVERAGE|IMAGE_REJECTED' source-run.log | tail -30 >> "$GITHUB_STEP_SUMMARY" || true
       - name: Preserve diagnostics
         if: always()
         uses: actions/upload-artifact@v4
