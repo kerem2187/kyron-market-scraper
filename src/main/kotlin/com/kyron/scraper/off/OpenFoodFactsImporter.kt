@@ -73,5 +73,13 @@ class OpenFoodFactsImporter(
             page++ // OffApiClient paces every request, including retry attempts.
         }
         println("${slug.uppercase()}_COVERAGE pages=${minOf(page, maxPages)} exhausted=$done fullCatalogGuaranteed=false")
-    }
+           if (slug == "off" && maxPages >= 50) {
+               val priorityBrands = listOf("ulker", "eti", "pinar", "sutas", "icim", "sek", "torku", "polonez", "maret", "namet", "banvit", "dardanel", "barilla", "filiz", "yayla", "reis", "tat", "tukas", "yudum", "komili", "taris", "caykur", "dogus", "lipton", "nescafe", "jacobs", "knorr", "calve", "heinz", "dr-oetker", "pakmaya", "tadim", "peyman", "koska", "balparmak", "marmarabirlik", "nestle", "kinder", "ferrero", "milka", "lindt", "pringles", "doritos", "lays", "migros", "macrocenter", "danone", "activia", "eker", "bahcivan", "muratbey", "tahsildaroglu", "kiri", "president", "lavachequirit", "superfresh", "feast", "uno", "wasa", "nutella", "oreo", "haribo", "toblerone", "kraft", "hellmanns", "kuhne", "de-cecco", "monini", "bertolli")
+                       for (brandTag in priorityBrands) { for (brandPage in 1..3) {
+                                val brandUrl = "$baseUrl/api/v2/search?brands_tags=$brandTag&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories&page=$brandPage&page_size=100"
+                  val brandProducts = runCatching { json.parseToJsonElement(client.get(brandUrl)).jsonObject["products"]?.jsonArray }.onFailure { log.warn { "[$slug] brand=$brandTag page $brandPage failed: ${it.message}" } }.getOrNull() ?: continue
+                  if (brandProducts.isEmpty()) break
+  for (element in brandProducts) { val o = element.jsonObject; val barcode = o["code"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue; val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue; val imageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["image_front_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["image_small_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }; emit(RawProduct(name = name, brand = o["brands"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }, barcode = barcode, sourceImageUrl = imageUrl, category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(), sourceUrl = "$baseUrl/product/$barcode")) }
+  if (brandProducts.size < 100) break } } }
+                       }
 }
