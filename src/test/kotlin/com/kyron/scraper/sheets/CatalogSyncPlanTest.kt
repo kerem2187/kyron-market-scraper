@@ -2,16 +2,22 @@ package com.kyron.scraper.sheets
 import com.kyron.scraper.model.Product
 import kotlin.test.*
 class CatalogSyncPlanTest {
-    private fun product(code: String = "8691381000486") = Product(code, "Name", imageUrl="https://example.test/image.jpg", source="off")
+    private fun product(code: String = "8691381000486", name: String = "Name") =
+        Product(code, name, imageUrl="https://example.test/image.jpg", source="off")
     @Test fun appendsValidProductsIncludingWithoutImage() {
         val plan = CatalogSyncPlan.build(listOf(product(), product("invalid"), product("8690504017301").copy(imageUrl=null)), emptyList())
         assertEquals(2, plan.inserted); assertEquals(1, plan.incompleteSkipped)
     }
     @Test fun updatesExistingValuesWhenFresherDataArrives() {
-        val row = IndexedCatalogRow(17, CatalogRow("8691381000486", "Old Name", "Category", "Sub", ""))
-        val plan = CatalogSyncPlan.build(listOf(product()), listOf(row))
-        assertEquals(listOf(CatalogCellUpdate(17,"B","Name"), CatalogCellUpdate(17,"E","https://example.test/image.jpg")), plan.updates)
+        val row = IndexedCatalogRow(17, CatalogRow("8691381000486", "Old", "Category", "Sub", ""))
+        val plan = CatalogSyncPlan.build(listOf(product(name = "Fresh Product 500 G")), listOf(row))
+        assertEquals(listOf(CatalogCellUpdate(17,"B","Fresh Product 500 G"), CatalogCellUpdate(17,"E","https://example.test/image.jpg")), plan.updates)
         assertTrue(plan.additions.isEmpty())
+    }
+    @Test fun doesNotDowngradeRicherExistingTitleWithLowQualityOffName() {
+        val row = IndexedCatalogRow(17, CatalogRow("8691381000486", "Pınar Süt 1 L", "Category", "Sub", ""))
+        val plan = CatalogSyncPlan.build(listOf(product(name = "Süt")), listOf(row))
+        assertEquals(listOf(CatalogCellUpdate(17,"E","https://example.test/image.jpg")), plan.updates)
     }
     @Test fun duplicateRowsAreReportedNotDeletedOrCompacted() {
         val a=IndexedCatalogRow(2,CatalogRow("8691381000486","Name",imageUrl="https://example.test/image.jpg"))
