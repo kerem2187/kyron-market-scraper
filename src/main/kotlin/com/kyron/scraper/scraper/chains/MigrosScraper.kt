@@ -29,7 +29,16 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
     override fun seedUrls(): List<String> = listOf(
         "$base/uzun-omurlu-sut-c-40a",
         "$base/atistirmalik-c-113fb",
-    )
+        "$base/sut-kahvaltilik-c-4",
+        "$base/temel-gida-c-5",
+        "$base/icecek-c-6",
+        "$base/deterjan-temizlik-c-7",
+        "$base/kisisel-bakim-kozmetik-c-8",
+        "$base/bebek-c-9",
+        "$base/evcil-hayvan-c-a",
+        "$base/et-tavuk-balik-c-2",
+        "$base/firin-pastane-c-3",
+    )    
 
     override fun catalogSeeds(): List<String> {
         val discovered = runCatching { browser.withPage { page ->
