@@ -18,17 +18,18 @@ class OpenFoodFactsImporter(
     private val baseUrl: String = "https://world.openfoodfacts.org",
     override val slug: String = "off",
     override val displayName: String = "Open Food Facts",
-    private val startPage: Int = (System.getenv("OFF_START_PAGE")?.toIntOrNull()?.coerceAtLeast(1) ?: 1),
+    private val startPage: Int = 1,
 ) : ChainScraper {
     override val barcodeAvailable = true
     override val status = SourceStatus.VERIFIED
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     override suspend fun scrape(emit: suspend (RawProduct) -> Unit) {
-        var page = startPage
+        val effectiveStartPage = if (startPage != 1) startPage else (System.getenv("OFF_RUNTIME_START_PAGE")?.toIntOrNull()?.coerceAtLeast(1) ?: 1)
+        var page = effectiveStartPage
         var done = false
         var consecutiveErrors = 0
-        while (page < startPage + maxPages) {
+        while (page < effectiveStartPage + maxPages) {
             val url = "$baseUrl/api/v2/search" +
                 "?countries_tags_en=$country&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories" +
                 "&page=$page&page_size=$pageSize"
