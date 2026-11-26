@@ -2,8 +2,8 @@ name: Kyron Market Scrape
 
 on:
   schedule:
-    # Daily 03:00 Europe/Istanbul. GitHub schedules are best-effort, not exact-time SLAs.
-    - cron: "0 0 * * *" 
+    # Daily 03:00, 09:00, 15:00, 21:00 Europe/Istanbul until 10,000+ catalog target is reached.
+    - cron: "0 0 * * *"
     - cron: "0 6,12,18 * * *"
   workflow_dispatch:
     inputs:
@@ -14,6 +14,10 @@ on:
       seed_urls:
         description: "Optional Macrocenter category/list URLs; blank discovers categories"
         default: ""
+        required: false
+      off_start_page:
+        description: "Starting page for Open Food Facts"
+        default: "1"
         required: false
       max_minutes:
         description: "Run-time budget PER SOURCE in minutes (1-45)"
@@ -27,10 +31,6 @@ on:
         description: "Firestore write budget PER SOURCE (1-10000)"
         default: "2500"
         required: true
-      off_start_page:
-        description: "Starting page for Open Food Facts"
-        default: "1"
-        required: false
 
 permissions:
   contents: read
@@ -45,7 +45,6 @@ env:
   FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
   FIRESTORE_DATABASE: ${{ vars.FIRESTORE_DATABASE || '(default)' }}
   SHEETS_SYNC_ENABLED: "false"
-  # Aktif KYRON SKT TAKİP (URUN_TAKIP) E-Tablo ID'si (eski yedek ID yerine güncellendi)
   SHEETS_SPREADSHEET_ID: "1Qn-JgB-W6b8QV2_sy_dN4wKgQM4qlQCULLrf-LiqORQ"
   SHEETS_CATALOG_TAB: "KATALOG"
   REQUEST_DELAY_MS: "2000"
@@ -111,9 +110,9 @@ jobs:
         shell: bash
         env:
           OFF_RUNTIME_START_PAGE: ${{ github.event.inputs.off_start_page || '1' }}
-          run: |
-            set -o pipefail
-            bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
+        run: |
+          set -o pipefail
+          bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
       - name: Preserve source result and coverage
         if: always()
         shell: bash
@@ -137,7 +136,6 @@ jobs:
     if: ${{ always() && !cancelled() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 20
-    # Shared lock with the independent 05:30 fallback/manual sync.
     concurrency:
       group: kyron-sheets-catalog-writer
       cancel-in-progress: false
