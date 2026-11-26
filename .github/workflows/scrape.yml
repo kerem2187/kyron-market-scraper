@@ -27,6 +27,10 @@ on:
         description: "Firestore write budget PER SOURCE (1-10000)"
         default: "2500"
         required: true
+      off_start_page:
+        description: "Starting page for Open Food Facts"
+        default: "1"
+        required: false
 
 permissions:
   contents: read
@@ -36,6 +40,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  OFF_START_PAGE: ${{ github.event.inputs.off_start_page || '1' }}
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   FIRESTORE_COLLECTION: products
   FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
