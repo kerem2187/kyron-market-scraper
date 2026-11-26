@@ -9,33 +9,36 @@ import java.net.URI
 
 /** Only a product-detail response is accepted; recommendations must never supply its barcode. */
 object MacrocenterProductParser {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     fun detail(body: String, sourceUrl: String): JsonObject? = runCatching {
         val root = json.parseToJsonElement(body).jsonObject
         if (root["successful"]?.jsonPrimitive?.booleanOrNull != true) return null
         val envelope = root["data"] as? JsonObject ?: return null
         // Migros screens API wraps the same product schema; Macrocenter returns it directly.
-        val data = envelope["storeProductInfoDTO"] as? JsonObject ?: envelope
+        val data = (envelope["storeProductInfoDTO"] as? JsonObject)
+            ?: (envelope["productInfo"] as? JsonObject)
+            ?: (envelope["product"] as? JsonObject)
+            ?: envelope
         val expected = URI(sourceUrl).path.trim('/').substringBefore('?')
         data.takeIf { JsonLd.string(it, "prettyName") == expected }
     }.getOrNull()
 
     fun product(data: JsonObject, sourceUrl: String): RawProduct? {
-        val name = JsonLd.string(data, "name")?.takeIf { it.isNotBlank() } ?: return null
+        val name = JsonLd.string(data, "name", "title", "productName")?.takeIf { it.isNotBlank() } ?: return null
         return RawProduct(
             name = TextNormalizer.cleanName(name),
-            brand = JsonLd.string(data, "brand"),
+            brand = JsonLd.string(data, "brand", "brandName"),
             barcode = barcode(data),
             sourceImageUrl = images(data).firstOrNull(),
-            category = JsonLd.string(data, "category"),
+            category = JsonLd.string(data, "category", "categoryName"),
             sourceUrl = sourceUrl,
         )
     }
 
     /** Explicit GTIN fields only. sku/id/prettyName and arbitrary numbers are NOT barcodes. */
     fun barcode(data: JsonObject): String? {
-        for (key in listOf("gtin13", "gtin", "ean", "barcode", "barcodes")) {
+        for (key in listOf("gtin13", "gtin", "ean", "ean13", "gtin12", "gtin8", "barcode", "barcodes")) {
             val value = data[key]
             val values = if (value is JsonArray) value.toList() else listOfNotNull(value)
             for (item in values) {
@@ -47,12 +50,13 @@ object MacrocenterProductParser {
         return null
     }
 
-    fun images(data: JsonObject): List<String> = imageUrls(data["images"], listOf("PRODUCT_HD", "PRODUCT_DETAIL"))
+    fun images(data: JsonObject): List<String> =
+        imageUrls(data["images"], listOf("PRODUCT_HD", "PRODUCT_DETAIL", "PRODUCT_LIST", "ORIGINAL"))
 
     fun labelImages(data: JsonObject): List<String> {
         val safety = data["productSafetyInfo"] as? JsonObject
         val info = safety?.get("productSafetyImageInfo") as? JsonObject
-        return imageUrls(info?.get("images"), listOf("LEGAL"))
+        return imageUrls(info?.get("images"), listOf("LEGAL", "PRODUCT_HD"))
     }
 
     private fun imageUrls(element: JsonElement?, sizes: List<String>): List<String> =
