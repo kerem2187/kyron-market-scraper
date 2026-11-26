@@ -13,8 +13,14 @@ class OffPaginationTest {
     @Test fun secondPageErrorIsNotHiddenByFirstPageSuccess() = runBlocking<Unit> {
         var calls=0
         val client=OffApiClient(maxAttempts=1,request={ if(calls++==0) OffResponse(200,"""{"products":[$product]}""") else OffResponse(503,"") },sleep={},intervalMs=0)
-        assertFailsWith<IllegalStateException> { OpenFoodFactsImporter(pageSize=1,maxPages=2,client=client).scrape {} }
-        assertEquals(2,calls)
+        assertFailsWith<IllegalStateException> { OpenFoodFactsImporter(pageSize=1,maxPages=4,client=client).scrape {} }
+        assertEquals(4,calls)
+    }
+    @Test fun singlePageErrorContinuesToNextPage() = runBlocking<Unit> {
+        var calls=0;var emitted=0
+        val client=OffApiClient(maxAttempts=1,request={ if(calls++==1) OffResponse(503,"") else OffResponse(200,"""{"products":[$product]}""") },sleep={},intervalMs=0)
+        OpenFoodFactsImporter(pageSize=1,maxPages=3,client=client).scrape { emitted++ }
+        assertEquals(3,calls);assertEquals(2,emitted)
     }
     @Test fun malformedResponseDoesNotMeanEmptyCatalog() = runBlocking<Unit> {
         val client=OffApiClient(request={ OffResponse(200,"""{"error":"failure"}""") },sleep={},intervalMs=0)
