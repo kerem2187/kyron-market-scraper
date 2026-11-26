@@ -1,6 +1,8 @@
 package com.kyron.scraper.sheets
 
 import com.kyron.scraper.model.Product
+import com.kyron.scraper.pipeline.MergePolicy
+import com.kyron.scraper.util.ProductQuality
 
 data class CatalogRow(
     val barcode: String,
@@ -15,11 +17,19 @@ data class CatalogRow(
         imageUrl = imageUrl.ifBlank { product.imageUrl.orEmpty() },
     )
 
-    fun mergeUpdatedFrom(product: Product): CatalogRow = copy(
-        name = product.name.ifBlank { name },
-        category = product.category?.takeIf { it.isNotBlank() } ?: category,
-        imageUrl = product.imageUrl?.takeIf { it.isNotBlank() } ?: imageUrl,
-    )
+    fun mergeUpdatedFrom(product: Product): CatalogRow {
+        val incomingName = product.name.trim()
+        val keepIncomingName = incomingName.isNotBlank() &&
+            ProductQuality.isMeaningfulName(incomingName) &&
+            (name.isBlank() || !ProductQuality.isMeaningfulName(name) ||
+                product.source in setOf("migros", "macrocenter") ||
+                MergePolicy.nameQualityScore(incomingName) >= MergePolicy.nameQualityScore(name))
+        return copy(
+            name = if (keepIncomingName) incomingName else name,
+            category = product.category?.takeIf { it.isNotBlank() } ?: category,
+            imageUrl = product.imageUrl?.takeIf { it.isNotBlank() } ?: imageUrl,
+        )
+    }
 
     companion object {
         fun fromProduct(product: Product): CatalogRow = CatalogRow(
