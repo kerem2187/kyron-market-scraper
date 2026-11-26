@@ -40,7 +40,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  OFF_START_PAGE: ${{ github.event.inputs.off_start_page || '1' }}
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   FIRESTORE_COLLECTION: products
   FIRESTORE_OBSERVATIONS_COLLECTION: product_observations
@@ -110,7 +109,9 @@ jobs:
         run: gradle --no-daemon installBrowsers
       - name: Scrape one isolated source
         shell: bash
-        run: |
+        env:
+          OFF_RUNTIME_START_PAGE: ${{ github.event.inputs.off_start_page || '1' }}
+          run: |
           set -o pipefail
           bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
       - name: Preserve source result and coverage
