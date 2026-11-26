@@ -41,7 +41,7 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
             emptyList()
         }
         println("CATALOG_COVERAGE source=$slug categories=${discovered.size} fullCatalogGuaranteed=false")
-        return (seedUrls() + discovered).distinct()
+        return (seedUrls() + discovered).distinct().shuffled()
     }
 
     override fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->
