@@ -112,8 +112,8 @@ jobs:
         env:
           OFF_RUNTIME_START_PAGE: ${{ github.event.inputs.off_start_page || '1' }}
           run: |
-          set -o pipefail
-          bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
+            set -o pipefail
+            bash .github/scripts/run-sources.sh 2>&1 | tee source-run.log
       - name: Preserve source result and coverage
         if: always()
         shell: bash
