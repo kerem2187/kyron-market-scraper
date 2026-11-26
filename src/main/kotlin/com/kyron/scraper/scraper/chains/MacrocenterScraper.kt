@@ -84,9 +84,7 @@ class MacrocenterScraper(
                     listing.waitForSelector("mc-nav-tree-large-item > a[href*='-c-']",
                         Page.WaitForSelectorOptions().setTimeout(budget.timeoutMs(12_000)))
                     // Packaged goods are more likely to have readable GTIN labels than loose produce.
-                    categoryLinks(Jsoup.parse(listing.content(), BASE)).sortedBy {
-                        if (it.contains("sut-urunleri") || it.contains("atistirmalik")) 0 else 1
-                    }
+                    categoryLinks(Jsoup.parse(listing.content(), BASE)).shuffled()
                 }
                 check(categories.isNotEmpty()) { "Macrocenter: no categories discovered" }
                 for (category in categories) {
