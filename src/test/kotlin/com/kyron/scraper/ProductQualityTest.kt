@@ -36,4 +36,12 @@ class ProductQualityTest {
     @Test fun normalizesUpcWithoutInventingBarcode() {
         assertEquals("0036000291452", ProductQuality.normalized(valid.copy(barcode = "036000291452"))?.barcode)
     }
+    @Test fun rejectsMeaninglessAndPlaceholderNames() {
+        for (badName in listOf("a", "A", "aaa", "123", ".", "test", "8690793020105", "ürün", "unknown", "n/a")) {
+            assertFalse(ProductQuality.isMeaningfulName(badName))
+            assertNull(ProductQuality.normalized(valid.copy(name = badName)))
+        }
+        assertTrue(ProductQuality.isMeaningfulName("Süt 1L"))
+        assertTrue(ProductQuality.isMeaningfulName("Çay"))
+    }
 }
