@@ -27,6 +27,8 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
     private val base = "https://www.migros.com.tr"
 
     override fun seedUrls(): List<String> = listOf(
+        "$base/sarkuteri-c-40e",
+        "$base/peynir-c-40c",
         "$base/uzun-omurlu-sut-c-40a",
         "$base/atistirmalik-c-113fb",
         "$base/sut-kahvaltilik-c-4",
@@ -50,7 +52,9 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
             emptyList()
         }
         println("CATALOG_COVERAGE source=$slug categories=${discovered.size} fullCatalogGuaranteed=false")
-        return (seedUrls() + discovered).distinct().shuffled()
+       val priorityKeywords = listOf("sarkuteri", "kuru-gida", "kahvalti", "peynir", "et-", "sut-", "temel-gida", "makarna", "bakliyat", "yag", "sos", "konserve", "zeytin", "atistirmalik", "cay", "kahve")
+            val (priority, rest) = (seedUrls() + discovered).distinct().partition { url -> val lower = url.lowercase(); priorityKeywords.any { lower.contains(it) } }
+            return priority.shuffled() + rest.shuffled()
     }
 
     override fun scrapeProduct(url: String): RawProduct? = browser.withPage { page ->
