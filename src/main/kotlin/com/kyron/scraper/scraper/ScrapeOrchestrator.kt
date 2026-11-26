@@ -35,18 +35,15 @@ class ScrapeOrchestrator(
                 if (complete == null) { skipped++; return@scrape }
                 val barcode = complete.barcode!!
                 if (!seenThisRun.add(barcode)) { skipped++; return@scrape }
-                if (!images.verify(complete.sourceImageUrl!!)) {
-                    skipped++
-                    log.warn { "[${scraper.slug}] IMAGE_REJECTED barcode=$barcode" }
-                    return@scrape
-                }
+                val verifiedImageUrl = complete.sourceImageUrl?.takeIf { images.verify(it) }
+                if (complete.sourceImageUrl != null && verifiedImageUrl == null) log.warn { "[${scraper.slug}] IMAGE_REJECTED barcode=$barcode" }
                 withBarcode++
                 try {
                     val product = Product(
                         barcode = barcode,
                         name = complete.name,
                         brand = raw.brand?.trim()?.takeIf { it.isNotEmpty() },
-                        imageUrl = complete.sourceImageUrl,
+                        imageUrl = verifiedImageUrl,
                         category = raw.category?.trim()?.takeIf { it.isNotEmpty() },
                         unit = raw.unit?.trim()?.takeIf { it.isNotEmpty() },
                         source = scraper.slug,
