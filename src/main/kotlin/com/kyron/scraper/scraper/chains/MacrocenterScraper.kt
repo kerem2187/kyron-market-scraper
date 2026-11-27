@@ -30,7 +30,7 @@ class MacrocenterScraper(
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
     private val maxPagesPerSeed: Int = setting("MACROCENTER_MAX_LISTING_PAGES", 3, 1..20),
     private val maxProducts: Int = setting("MACROCENTER_MAX_PRODUCTS", 30, 1..2500),
-    private val maxRunMinutes: Int = setting("MACROCENTER_MAX_RUN_MINUTES", 10, 1..45),
+    private val maxRunMinutes: Int = setting("MACROCENTER_MAX_RUN_MINUTES", 10, 1..45), private val knownUrls: Set<String> = emptySet(),
 ) : ChainScraper {
     override val slug = "macrocenter"
     override val displayName = "Macrocenter"
@@ -44,7 +44,7 @@ class MacrocenterScraper(
         var errors = 0
         var consecutiveErrors = 0
         var stopReason = "completed"
-        val visited = hashSetOf<String>()
+        val visited = knownUrls.map { it.substringBefore('?').trimEnd('/') }.toHashSet()
         log.info { "[$slug] limits: attempts=$maxProducts minutes=$maxRunMinutes listingPages=$maxPagesPerSeed" }
         try {
             browser.withContext { context ->
@@ -86,7 +86,7 @@ class MacrocenterScraper(
                     // Packaged goods are more likely to have readable GTIN labels than loose produce.
                 val priorityKeywords = listOf("ithal", "gurme", "dunya", "sarkuteri", "peynir", "et-", "sut-", "kahvalti", "zeytin", "kuru-gida", "temel-gida", "makarna", "bakliyat", "yag", "sos", "konserve", "kahve", "cay", "cikolata", "atistirmalik", "baharat", "bal", "recel")
                 val (priority, rest) = categoryLinks(Jsoup.parse(listing.content(), BASE)).partition { url -> val lower = url.lowercase(); priorityKeywords.any { lower.contains(it) } }
-                val pagedPriority = priority.flatMap { url -> listOf(url, "$url?sayfa=2", "$url?sayfa=3", "$url?sayfa=4") }
+                val pagedPriority = priority.flatMap { url -> listOf(url) + (2..12).map { "$url?sayfa=$it" } }
                 pagedPriority.shuffled() + rest.shuffled()
                 }
                 check(categories.isNotEmpty()) { "Macrocenter: no categories discovered" }
@@ -107,7 +107,7 @@ class MacrocenterScraper(
                         budget.checkTime()
                         val links = productLinks(Jsoup.parse(listing.content(), category))
                         for (url in links) {
-                            if (!visited.add(url)) continue
+                            if (!visited.add(url.substringBefore('?').trimEnd('/'))) continue
                             budget.beforeProduct() // Counts attempts, including failed requests and missing barcodes.
                             delay(Config.requestDelayMs)
                             detail.close()
