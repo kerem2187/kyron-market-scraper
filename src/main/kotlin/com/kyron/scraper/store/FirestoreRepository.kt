@@ -21,6 +21,11 @@ class FirestoreRepository(private val db: Firestore) {
     val writesUsed: Int get() = writeCounter.get()
     fun hasWriteCapacity(): Boolean = writesUsed <= Config.maxWritesPerRun - 2
 
+       fun knownSourceUrls(): Set<String> = runCatching {
+           db.collection(observations).select("sourceUrl").get().get().documents
+           .mapNotNull { it.getString("sourceUrl")?.substringBefore('?')?.trimEnd('/') }
+           .filter { it.isNotBlank() }.toSet()
+       }.getOrDefault(emptySet())
     fun healthCheck() {
         val ref = db.collection(metaCollection).document("healthcheck")
         ref.set(mapOf("ts" to System.currentTimeMillis(), "note" to "kyron scraper canary"), SetOptions.merge()).get()
