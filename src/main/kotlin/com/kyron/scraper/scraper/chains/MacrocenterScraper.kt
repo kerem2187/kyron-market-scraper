@@ -84,9 +84,10 @@ class MacrocenterScraper(
                     listing.waitForSelector("mc-nav-tree-large-item > a[href*='-c-']",
                         Page.WaitForSelectorOptions().setTimeout(budget.timeoutMs(12_000)))
                     // Packaged goods are more likely to have readable GTIN labels than loose produce.
-          val priorityKeywords = listOf("sarkuteri", "peynir", "et-", "sut-", "kahvalti", "zeytin", "kuru-gida", "temel-gida", "makarna", "bakliyat", "yag", "sos", "konserve", "atistirmalik", "kahve", "cay", "gurme", "un", "baharat", "recel", "bal")
-                                       val (priority, rest) = categoryLinks(Jsoup.parse(listing.content(), BASE)).partition { url -> val lower = url.lowercase(); priorityKeywords.any { lower.contains(it) } }
-                                       priority.shuffled() + rest.shuffled()
+                val priorityKeywords = listOf("ithal", "gurme", "dunya", "sarkuteri", "peynir", "et-", "sut-", "kahvalti", "zeytin", "kuru-gida", "temel-gida", "makarna", "bakliyat", "yag", "sos", "konserve", "kahve", "cay", "cikolata", "atistirmalik", "baharat", "bal", "recel")
+                val (priority, rest) = categoryLinks(Jsoup.parse(listing.content(), BASE)).partition { url -> val lower = url.lowercase(); priorityKeywords.any { lower.contains(it) } }
+                val pagedPriority = priority.flatMap { url -> listOf(url, "$url?sayfa=2", "$url?sayfa=3", "$url?sayfa=4") }
+                pagedPriority.shuffled() + rest.shuffled()
                 }
                 check(categories.isNotEmpty()) { "Macrocenter: no categories discovered" }
                 for (category in categories) {
