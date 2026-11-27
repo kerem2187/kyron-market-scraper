@@ -6,7 +6,7 @@ import com.kyron.scraper.marketfiyati.MarketFiyatiImporter
 import com.kyron.scraper.off.OpenFoodFactsImporter
 import com.kyron.scraper.scraper.chains.*
 
-class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner) {
+class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner, knownUrls: Set<String> = emptySet()) {
     private val all: List<ChainScraper> = listOf(
         OpenFoodFactsImporter(),
         OpenFoodFactsImporter(
@@ -25,9 +25,9 @@ class ScraperRegistry(fetcher: PoliteFetcher, browser: BrowserRunner) {
             displayName = "Open Pet Food Facts",
         ),
         MarketFiyatiImporter(),
-        MigrosScraper(browser),
+        MigrosScraper(browser, knownUrls),
         CarrefourSaScraper(browser),
-        MacrocenterScraper(browser, fetcher),
+        MacrocenterScraper(browser, fetcher, knownUrls = knownUrls),
         SokScraper(fetcher),
         A101Scraper(browser),
         FileMarketScraper(fetcher),
