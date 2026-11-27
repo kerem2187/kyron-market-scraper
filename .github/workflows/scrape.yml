@@ -2,9 +2,9 @@ name: Kyron Market Scrape
 
 on:
   schedule:
-    # Daily 03:00, 09:00, 15:00, 21:00 Europe/Istanbul until 10,000+ catalog target is reached.
+    # Runs every hour (00:00 + 01:00..23:00 UTC); scheduled runs target only macrocenter and migros.
     - cron: "0 0 * * *"
-    - cron: "0 6,12,18 * * *"
+    - cron: "0 1-23 * * *"
   workflow_dispatch:
     inputs:
       chains:
@@ -21,15 +21,15 @@ on:
         required: false
       max_minutes:
         description: "Run-time budget PER SOURCE in minutes (1-45)"
-        default: "30"
+        default: "45"
         required: true
       max_products:
         description: "Macrocenter product attempt limit (includes failures; 1-2500)"
-        default: "1000"
+        default: "2500"
         required: true
       max_writes:
         description: "Firestore write budget PER SOURCE (1-10000)"
-        default: "2500"
+        default: "5000"
         required: true
 
 permissions:
@@ -48,10 +48,10 @@ env:
   SHEETS_SPREADSHEET_ID: "1Qn-JgB-W6b8QV2_sy_dN4wKgQM4qlQCULLrf-LiqORQ"
   SHEETS_CATALOG_TAB: "KATALOG"
   REQUEST_DELAY_MS: "2000"
-  MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '2500' }}
-  MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '30' }}
-  MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '30' }}
-  MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '1000' }}
+  MAX_WRITES_PER_RUN: ${{ github.event.inputs.max_writes || '5000' }}
+  MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '45' }}
+  MACROCENTER_MAX_RUN_MINUTES: ${{ github.event.inputs.max_minutes || '45' }}
+  MACROCENTER_MAX_PRODUCTS: ${{ github.event.inputs.max_products || '2500' }}
   MACROCENTER_MAX_LISTING_PAGES: "10"
   MACROCENTER_SEED_URLS: ${{ github.event.inputs.seed_urls || '' }}
   CATALOG_MAX_LISTING_PAGES: "10"
@@ -73,7 +73,9 @@ jobs:
           python3 - <<'PY'
           import json, os
           requested = [s.strip().lower() for s in os.environ['SOURCE_SELECTION'].split(',') if s.strip()]
-          if requested == ['all']:
+          if os.environ.get('GITHUB_EVENT_NAME') == 'schedule':
+              requested = ['macrocenter', 'migros']
+          elif requested == ['all']:
               requested = ['off', 'obf', 'opf', 'opff']
           sources = list(dict.fromkeys(requested))
           allowed = {'macrocenter', 'migros', 'marketfiyati', 'sok', 'off', 'obf', 'opf', 'opff'}
