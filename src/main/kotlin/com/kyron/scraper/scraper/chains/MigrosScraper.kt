@@ -18,7 +18,7 @@ import java.util.regex.Pattern
  * Migros Sanal Market (JS-rendered SPA -> browser).
  * Selectors verified against the site as of writing; re-check periodically.
  */
-class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(browser) {
+class MigrosScraper(browser: BrowserRunner, knownUrls: Set<String> = emptySet()) : AbstractBrowserCatalogScraper(browser, knownUrls) {
     override val slug = "migros"
     override val displayName = "Migros Sanal Market"
     override val barcodeAvailable = true
@@ -54,7 +54,7 @@ class MigrosScraper(browser: BrowserRunner) : AbstractBrowserCatalogScraper(brow
         println("CATALOG_COVERAGE source=$slug categories=${discovered.size} fullCatalogGuaranteed=false")
        val priorityKeywords = listOf("sarkuteri", "kuru-gida", "kahvalti", "peynir", "et-", "sut-", "temel-gida", "makarna", "bakliyat", "yag", "sos", "konserve", "zeytin", "atistirmalik", "cay", "kahve")
             val (priority, rest) = (seedUrls() + discovered).distinct().partition { url -> val lower = url.lowercase(); priorityKeywords.any { lower.contains(it) } }
-            val pagedPriority = priority.flatMap { url -> listOf(url, "$url?sayfa=2", "$url?sayfa=3", "$url?sayfa=4") }
+            val pagedPriority = priority.flatMap { url -> listOf(url) + (2..12).map { "$url?sayfa=$it" } }
             return pagedPriority.shuffled() + rest.shuffled()
     }
 
