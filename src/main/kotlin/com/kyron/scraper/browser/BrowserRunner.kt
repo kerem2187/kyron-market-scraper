@@ -34,6 +34,7 @@ class BrowserRunner : AutoCloseable {
             Browser.NewContextOptions().setUserAgent(Config.userAgent),
         )
         context.use { ctx ->
+            configureContext(ctx)
             val page = ctx.newPage()
             page.setDefaultTimeout(30_000.0)
             return block(page)
@@ -46,9 +47,16 @@ class BrowserRunner : AutoCloseable {
             Browser.NewContextOptions().setUserAgent(Config.userAgent)
                 .setServiceWorkers(ServiceWorkerPolicy.BLOCK),
         )
-        context.use { return block(it) }
+        context.use { configureContext(it); return block(it) }
     }
-
+    private fun configureContext(ctx: BrowserContext) {
+        val blocked = listOf("google-analytics.com", "googletagmanager.com", "doubleclick.net", "facebook.net", "hotjar.com", "clarity.ms", "criteo.com", "useinsider.com")
+        ctx.route("**/*") { route ->
+            val req = route.request(); val type = req.resourceType(); val url = req.url()
+            if (type == "image" || type == "media" || type == "font" || blocked.any { url.contains(it, ignoreCase = true) }) route.abort() else route.resume()
+        }
+    }
+    
     override fun close() {
         runCatching { browser?.close() }
         runCatching { playwright?.close() }
