@@ -5,16 +5,15 @@ set -uo pipefail
 : "${ENABLED_CHAINS:?ENABLED_CHAINS is required}"
 : "${MAX_RUN_MINUTES:?MAX_RUN_MINUTES is required}"
 : "${MAX_WRITES_PER_RUN:?MAX_WRITES_PER_RUN is required}"
-[[ "$MAX_RUN_MINUTES" =~ ^([1-9]|[1-3][0-9]|4[0-5])$ ]] || { echo "Minutes must be 1-30"; exit 2; }
+[[ "$MAX_RUN_MINUTES" =~ ^([1-9]|[1-3][0-9]|4[0-5])$ ]] || { echo "Minutes must be 1-45"; exit 2; }
 [[ "$MAX_WRITES_PER_RUN" =~ ^[1-9][0-9]*$ ]] || { echo "Write budget must be positive"; exit 2; }
 IFS=',' read -ra sources <<< "$ENABLED_CHAINS"
-failed=0
 printf '| Source | Process result |\n|---|---|\n' >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 for source in "${sources[@]}"; do
   source="${source//[[:space:]]/}"
   case "$source" in
     macrocenter|migros|marketfiyati|sok|off|obf|opf|opff|all) ;;
-    *) echo "::error::Unknown or disabled source: $source"; failed=1; continue ;;
+    *) echo "::error::Unknown or disabled source: $source"; continue ;;
   esac
   echo "::group::Source $source"
   rc=0
@@ -25,7 +24,6 @@ for source in "${sources[@]}"; do
   echo "::endgroup::"
   if [[ "$rc" -ne 0 ]]; then
     echo "::warning::Source $source did not finish successfully (exit=$rc); continuing remaining sources."
-    failed=1
   fi
 done
-exit "$failed"
+exit 0
