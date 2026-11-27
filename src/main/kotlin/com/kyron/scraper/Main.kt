@@ -30,7 +30,9 @@ fun main(args: Array<String>) = runBlocking {
         }
         val orchestrator = ScrapeOrchestrator(repo)
         BrowserRunner().use { browser ->
-            val managed = try { ScraperRegistry(PoliteFetcher(), browser).resolve(chains) } catch (e: Exception) {
+            val knownUrls = repo.knownSourceUrls()
+            log.info { "knownUrls=${knownUrls.size}" }
+            val managed = try { ScraperRegistry(PoliteFetcher(), browser, knownUrls).resolve(chains) } catch (e: Exception) {
                 log.error { e.message }; exitProcess(3)
             }
             if (managed.isEmpty()) { log.error { "No eligible sources selected" }; exitProcess(3) }
