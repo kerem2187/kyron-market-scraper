@@ -22,7 +22,7 @@ class FirestoreRepository(private val db: Firestore) {
     fun hasWriteCapacity(): Boolean = writesUsed <= Config.maxWritesPerRun - 2
 
        fun knownSourceUrls(): Set<String> = runCatching {
-           db.collection(observations)..whereIn("source", listOf("migros", "macrocenter"))select("sourceUrl").get().get().documents
+           db.collection(observations).whereIn("source", listOf("migros", "macrocenter")).select("sourceUrl").get().get().documents
            .mapNotNull { it.getString("sourceUrl")?.substringBefore('?')?.trimEnd('/') }
            .filter { it.isNotBlank() }.toSet()
        }.getOrDefault(emptySet())
