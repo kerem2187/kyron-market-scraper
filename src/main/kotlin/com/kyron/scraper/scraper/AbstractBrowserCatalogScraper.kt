@@ -19,6 +19,7 @@ private val log = KotlinLogging.logger {}
  */
 abstract class AbstractBrowserCatalogScraper(
     protected val browser: BrowserRunner,
+    protected val knownUrls: Set<String> = emptySet(),
 ) : ChainScraper {
 
     protected abstract fun seedUrls(): List<String>
@@ -29,7 +30,7 @@ abstract class AbstractBrowserCatalogScraper(
     protected open val waitSelector: String? = null
 
     override suspend fun scrape(emit: suspend (RawProduct) -> Unit) {
-        val visited = HashSet<String>()
+        val visited = knownUrls.map { it.substringBefore('?').trimEnd('/') }.toHashSet()
         var extracted = 0
         val deadline = System.currentTimeMillis() + com.kyron.scraper.config.Config.maxRunMinutes * 60_000
         fun checkTime() { check(System.currentTimeMillis() < deadline) { "Source run-time budget reached" } }
@@ -40,7 +41,7 @@ abstract class AbstractBrowserCatalogScraper(
                 .getOrDefault(emptyList())
             for (link in links) {
                 checkTime()
-                if (!visited.add(link)) continue
+                if (!visited.add(link.substringBefore('?').trimEnd('/'))) continue
                 val product = runCatching { scrapeProduct(link) }
                     .onFailure { if (it is CancellationException) throw it; log.warn { "[$slug] product failed $link: ${it.message}" } }
                     .getOrNull()
