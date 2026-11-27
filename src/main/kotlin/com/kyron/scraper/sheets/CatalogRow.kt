@@ -3,6 +3,7 @@ package com.kyron.scraper.sheets
 import com.kyron.scraper.model.Product
 import com.kyron.scraper.pipeline.MergePolicy
 import com.kyron.scraper.util.ProductQuality
+import java.net.URI
 
 data class CatalogRow(
     val barcode: String,
@@ -19,19 +20,40 @@ data class CatalogRow(
 
     fun mergeUpdatedFrom(product: Product): CatalogRow {
         val incomingName = product.name.trim()
+        val isOfficialSource = product.source in setOf("migros", "macrocenter", "marketfiyati", "sok")
         val keepIncomingName = incomingName.isNotBlank() &&
             ProductQuality.isMeaningfulName(incomingName) &&
             (name.isBlank() || !ProductQuality.isMeaningfulName(name) ||
                 product.source in setOf("migros", "macrocenter") ||
                 MergePolicy.nameQualityScore(incomingName) >= MergePolicy.nameQualityScore(name))
+
+        val incomingImg = product.imageUrl?.trim().orEmpty()
+        val keepIncomingImage = incomingImg.isNotBlank() &&
+            (!isOfficialStoreImage(imageUrl) || isOfficialStoreImage(incomingImg))
+
+        val incomingCat = product.category?.trim().orEmpty()
+        val keepIncomingCategory = incomingCat.isNotBlank() &&
+            (category.isBlank() || isOfficialSource || !isOfficialStoreImage(imageUrl))
+
         return copy(
             name = if (keepIncomingName) incomingName else name,
-            category = product.category?.takeIf { it.isNotBlank() } ?: category,
-            imageUrl = product.imageUrl?.takeIf { it.isNotBlank() } ?: imageUrl,
+            category = if (keepIncomingCategory) incomingCat else category,
+            imageUrl = if (keepIncomingImage) incomingImg else imageUrl,
         )
     }
 
     companion object {
+        private val officialImageHosts = setOf(
+            "images.migrosone.com",
+            "www.macrocenter.com.tr",
+            "images.ceptesok.com",
+            "cdn.marketfiyati.org.tr",
+        )
+
+        fun isOfficialStoreImage(url: String): Boolean = runCatching {
+            URI(url.trim()).host?.lowercase() in officialImageHosts
+        }.getOrDefault(false)
+
         fun fromProduct(product: Product): CatalogRow = CatalogRow(
             barcode = product.barcode,
             name = product.name,
