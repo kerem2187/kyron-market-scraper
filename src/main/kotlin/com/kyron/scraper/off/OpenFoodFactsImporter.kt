@@ -24,30 +24,93 @@ class OpenFoodFactsImporter(
     override val status = SourceStatus.VERIFIED
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+    private val priorityBrands = listOf(
+        "pinar", "sutas", "icim", "sek", "torku", "polonez", "maret", "namet", "banvit", "bolca",
+        "bahcivan", "muratbey", "tahsildaroglu", "ekici", "yorsan", "kebir", "kaanlar", "apikoglu",
+        "cumhuriyet-sucuklari", "ikbal", "gedik", "danone", "activia", "eker", "actimel",
+        "president", "kiri", "la-vache-qui-rit", "philadelphia", "galbani", "castello", "arla", "kerrygold",
+        "barilla", "filiz", "pastavilla", "ankara-makarna", "mutlu-makarna", "arbella", "veronelli", "de-cecco",
+        "yayla", "reis", "duru-bulgur", "tat", "tukas", "penguen", "burcu", "oncu", "sera", "berrak", "tamek",
+        "dardanel", "superfresh", "feast", "yudum", "komili", "taris", "kristal", "kirlangic", "orkide", "monini",
+        "bertolli", "knorr", "calve", "heinz", "hellmanns", "kuhne", "kemal-kukrer", "fersan", "bolbol", "develey",
+        "tabasco", "kikkoman", "amoy", "dr-oetker", "pakmaya", "kent-boringer", "bagdat-baharat", "arifoglu",
+        "marmarabirlik", "fora", "cem-zeytin", "balparmak", "anavarza", "koska", "seyidoglu", "fiskobirlik",
+        "sarelle", "nutella", "kelloggs", "nestle", "eti-lifalif", "wefood", "fropie", "zuber", "nora", "sinangil",
+        "soke", "uno", "wasa",
+        "caykur", "dogus", "lipton", "beta-tea", "ahmad-tea", "twinings", "nescafe", "jacobs", "tchibo",
+        "kurukahveci-mehmet-efendi", "kahve-dunyasi", "starbucks", "lavazza", "illy", "ulker", "eti",
+        "tadim", "peyman", "simsek", "saray", "solen", "kinder", "ferrero", "milka", "lindt", "toblerone",
+        "godiva", "haribo", "oreo", "pringles", "doritos", "ruffles", "lays", "cheetos", "cerezos",
+        "erikli", "beypazari", "uludag", "sirma", "hayat", "saka", "dimes", "cappy", "fuse-tea",
+        "coca-cola", "pepsi", "fanta", "sprite", "schweppes", "red-bull", "algida", "golf",
+        "migros", "m-life", "macrocenter", "anadolu-lezzetleri", "uzman-kasap", "aptamil", "bebelac", "hero-baby",
+        "hipp", "ari", "selpak", "solo", "familia", "sofia", "papia", "maylo", "sleepy", "prima", "molfix",
+        "colgate", "sensodyne", "signal", "oral-b", "pantene", "elidor", "head-shoulders", "clear", "gliss",
+        "dove", "nivea", "garnier", "gillette", "duru", "activex", "dalin", "fairy", "pril", "finish",
+        "ariel", "omo", "persil", "perwoll", "yumos", "vernel", "bingo", "domestos", "cif", "asperox",
+        "vanish", "koroplast", "parex", "whiskas", "felix", "purina", "pro-plan",
+    )
+
+    private suspend fun emitProductsFromArray(products: JsonArray, emit: suspend (RawProduct) -> Unit) {
+        for (element in products) {
+            val o = element.jsonObject
+            val barcode = o["code"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
+            val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
+            val imageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                ?: o["image_front_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+                ?: o["image_small_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
+            emit(
+                RawProduct(
+                    name = name,
+                    brand = o["brands"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() },
+                    barcode = barcode,
+                    sourceImageUrl = imageUrl,
+                    category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(),
+                    sourceUrl = "$baseUrl/product/$barcode",
+                )
+            )
+        }
+    }
+
     override suspend fun scrape(emit: suspend (RawProduct) -> Unit) {
         val effectiveStartPage = if (startPage != 1) startPage else (System.getenv("OFF_RUNTIME_START_PAGE")?.toIntOrNull()?.coerceAtLeast(1) ?: 1)
+
+        if (slug == "off" && maxPages >= 50) {
+            for (brand in priorityBrands.shuffled()) {
+                for (brandPage in 1..3) {
+                    val brandUrl = "$baseUrl/api/v2/search" +
+                        "?brands_tags=$brand&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories" +
+                        "&page=$brandPage&page_size=$pageSize"
+                    val products = runCatching {
+                        val body = client.get(brandUrl)
+                        json.parseToJsonElement(body).jsonObject["products"]?.jsonArray
+                            ?: error("[$slug] Invalid API response for brand $brand on page $brandPage")
+                    }.onFailure {
+                        log.warn { "[$slug] brand $brand page $brandPage failed: ${it.message}" }
+                    }.getOrNull() ?: break
+                    if (products.isEmpty()) break
+                    emitProductsFromArray(products, emit)
+                    log.info { "[$slug] brand=$brand page=$brandPage -> ${products.size} products" }
+                    if (products.size < pageSize) break
+                }
+            }
+        }
+
         var page = effectiveStartPage
         var done = false
-        var consecutiveErrors = 0           
-        if (slug == "off" && maxPages >= 50) {
-               val priorityBrands = listOf("ulker", "eti", "pinar", "sutas", "icim", "sek", "torku", "polonez", "maret", "namet", "banvit", "dardanel", "barilla", "filiz", "yayla", "reis", "tat", "tukas", "yudum", "komili", "taris", "caykur", "dogus", "lipton", "nescafe", "jacobs", "knorr", "calve", "heinz", "dr-oetker", "pakmaya", "tadim", "peyman", "koska", "balparmak", "marmarabirlik", "nestle", "kinder", "ferrero", "milka", "lindt", "pringles", "doritos", "lays", "migros", "macrocenter", "danone", "activia", "eker", "bahcivan", "muratbey", "tahsildaroglu", "kiri", "president", "lavachequirit", "superfresh", "feast", "uno", "wasa", "nutella", "oreo", "haribo", "toblerone", "kraft", "hellmanns", "kuhne", "de-cecco", "monini", "apikoglu",, "cumhuriyet", "cumhuriyet-sucuklari", "sahin", "besler", "danet", "erpilic", "senpilic", "beypilic", "keskinoglu", "gedik", "lezita", "aytac", "ikbal", "coskun", "cem", "berrak", "serel", "yenigun", "seyidoglu", "tamek", "burcu", "oncu", "penguen", "melis", "kenton", "bagdat", "arifoglu", "dost", "birsah", "mis", "tarim-kredi", "kebir", "yorukoglu", "teksut", "altinkilic", "gunesoglu", "ciftlik", "akbel", "puck", "philadelphia", "babybel", "galbani", "parmalat", "arla", "lurpak", "kerrygold", "leerdammer", "castello", "alpro", "oatly", "nuhun-ankara", "pastavilla", "oba", "mutlu", "selva", "arbella", "piyale", "soke", "sinangil", "duru", "hasata", "kirlangic", "biryag", "orkide", "zer", "kristal", "karali", "ofcay", "beta-tea", "ahmad-tea", "twinings", "tchibo", "lavazza", "illy", "starbucks", "mehmet-efendi", "kurukahveci-mehmet-efendi", "kahve-dunyasi", "ritter-sport", "solen", "biscolata", "patiswiss", "bifa", "saray", "maggi", "tabasco", "maille", "bonduelle", "rio-mare", "calvo", "mutti", "cirio", "divella", "rummo", "garofalo", "la-molisana", "quaker", "kelloggs", "fellas", "zuber", "bertolli")
-                       for (brandTag in priorityBrands.shuffled()) { for (brandPage in 1..3) {
-                                val brandUrl = "$baseUrl/api/v2/search?brands_tags=$brandTag&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories&page=$brandPage&page_size=100"
-                  val brandProducts = runCatching { json.parseToJsonElement(client.get(brandUrl)).jsonObject["products"]?.jsonArray }.onFailure { log.warn { "[$slug] brand=$brandTag page $brandPage failed: ${it.message}" } }.getOrNull() ?: continue
-                  if (brandProducts.isEmpty()) break
-  for (element in brandProducts) { val o = element.jsonObject; val barcode = o["code"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue; val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue; val imageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["image_front_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: o["image_small_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }; emit(RawProduct(name = name, brand = o["brands"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }, barcode = barcode, sourceImageUrl = imageUrl, category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(), sourceUrl = "$baseUrl/product/$barcode")) }
-  if (brandProducts.size < 100) break } } }
+        var consecutiveErrors = 0
         while (page < effectiveStartPage + maxPages) {
             val url = "$baseUrl/api/v2/search" +
                 "?countries_tags_en=$country&fields=code,product_name,product_name_tr,brands,image_url,image_front_url,image_small_url,categories" +
                 "&page=$page&page_size=$pageSize"
-          val products = runCatching {
+            val products = runCatching {
                 val body = client.get(url)
                 json.parseToJsonElement(body).jsonObject["products"]?.jsonArray
                     ?: error("[$slug] Invalid API response on page $page")
             }.onFailure {
                 consecutiveErrors++
-                log.warn { "[$slug] page $page failed ($consecutiveErrors/3): ${it.message}" }
+                log.warn { "[$slug] page $page failed (consecutiveErrors=$consecutiveErrors): ${it.message}" }
                 if (consecutiveErrors >= 3) throw it
             }.getOrNull()
             if (products == null) {
@@ -57,30 +120,11 @@ class OpenFoodFactsImporter(
             consecutiveErrors = 0
             onPage(page, products.size)
             if (products.isEmpty()) { done = true; break }
-            for (element in products) {
-                val o = element.jsonObject
-                val barcode = o["code"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
-                val name = o["product_name_tr"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
-                    ?: o["product_name"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() } ?: continue
-                val imageUrl = o["image_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
-                    ?: o["image_front_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
-                    ?: o["image_small_url"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() }
-                emit(
-                    RawProduct(
-                        name = name,
-                        brand = o["brands"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotBlank() },
-                        barcode = barcode,
-                        sourceImageUrl = imageUrl,
-                        category = o["categories"]?.jsonPrimitive?.contentOrNull?.split(",")?.firstOrNull()?.trim(),
-                        sourceUrl = "$baseUrl/product/$barcode",
-                    )
-                )
-            }
+            emitProductsFromArray(products, emit)
             log.info { "[$slug] page $page -> ${products.size} products" }
             if (products.size < pageSize) { done = true; break }
-            page++ // OffApiClient paces every request, including retry attempts.
+            page++
         }
-        println("${slug.uppercase()}_COVERAGE pages=${minOf(page, maxPages)} exhausted=$done fullCatalogGuaranteed=false")
-
-                       }
+        println("${slug.uppercase()}_COVERAGE pages=${minOf(page - effectiveStartPage + 1, maxPages)} exhausted=$done fullCatalogGuaranteed=false")
+    }
 }
